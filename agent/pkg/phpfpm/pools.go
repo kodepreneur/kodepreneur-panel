@@ -181,8 +181,17 @@ func (m *Manager) CreatePool(cfg PoolConfig) (string, error) {
 		return "", fmt.Errorf("failed to write pool config %s: %w", poolPath, err)
 	}
 
+	// Validate PHP-FPM configuration before keeping pool
+	if err := m.TestConfig(cfg.PhpVersion); err != nil {
+		_ = os.Remove(poolPath)
+		_ = m.ReloadFpm(cfg.PhpVersion)
+		return "", fmt.Errorf("php%s-fpm pool syntax validation failed: %w", cfg.PhpVersion, err)
+	}
+
 	// Reload PHP-FPM daemon
 	if err := m.ReloadFpm(cfg.PhpVersion); err != nil {
+		_ = os.Remove(poolPath)
+		_ = m.ReloadFpm(cfg.PhpVersion)
 		return "", fmt.Errorf("failed to reload php%s-fpm: %w", cfg.PhpVersion, err)
 	}
 
@@ -212,6 +221,19 @@ func (m *Manager) SwitchVersion(cfg PoolConfig, oldVersion string) error {
 		return err
 	}
 
+	return nil
+}
+
+// TestConfig tests PHP-FPM configuration syntax.
+func (m *Manager) TestConfig(phpVersion string) error {
+	if m.isDev || runtime.GOOS != "linux" {
+		return nil
+	}
+
+	cmd := exec.Command(fmt.Sprintf("php-fpm%s", phpVersion), "-t")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
 	return nil
 }
 
