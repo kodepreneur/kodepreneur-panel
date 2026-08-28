@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -145,4 +147,29 @@ func (r *Runner) Execute(req DeploymentRequest) (*DeploymentResult, error) {
 		CommitHash:      commitHash,
 		CommitMessage:   commitMsg,
 	}, nil
+}
+
+// CloneRepo clones a git repository into targetDir as the systemUser.
+func (r *Runner) CloneRepo(repoUrl, branch, targetDir, systemUser string) error {
+	if branch == "" {
+		branch = "main"
+	}
+
+	if r.isDev {
+		_ = os.MkdirAll(targetDir, 0755)
+		sampleIndex := filepath.Join(targetDir, "public", "index.php")
+		_ = os.MkdirAll(filepath.Dir(sampleIndex), 0755)
+		_ = os.WriteFile(sampleIndex, []byte("<?php echo 'Cloned from "+repoUrl+" ("+branch+")';"), 0644)
+		_ = os.WriteFile(filepath.Join(targetDir, "artisan"), []byte("#!/usr/bin/env php\n<?php // artisan"), 0755)
+		return nil
+	}
+
+	_ = os.MkdirAll(targetDir, 0755)
+	cloneCmd := fmt.Sprintf("git clone --branch %s --depth 1 %s %s", branch, repoUrl, targetDir)
+	cmd := exec.Command("su", "-", systemUser, "-s", "/bin/bash", "-c", cloneCmd)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git clone failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	return nil
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Deployment;
 use App\Models\Domain;
 use App\Models\SslCertificate;
 use App\Models\Website;
@@ -43,7 +44,12 @@ class WebsiteController extends Controller
         $validated = $request->validate([
             'domain' => ['required', 'string', 'max:255', 'unique:websites,domain', 'regex:/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/'],
             'php_version' => ['required', 'string', 'in:8.3,8.4,none'],
+            'deployment_source' => ['nullable', 'string', 'in:empty,zip,git'],
+            'project_type' => ['nullable', 'string', 'in:laravel,generic_php,static,auto'],
             'document_root' => ['nullable', 'string', 'max:255'],
+            'git_repository' => ['required_if:deployment_source,git', 'nullable', 'string', 'max:255'],
+            'git_branch' => ['nullable', 'string', 'max:100'],
+            'zip_file' => ['required_if:deployment_source,zip', 'nullable', 'file', 'mimes:zip', 'max:102400'],
             'aliases' => ['nullable', 'array'],
             'aliases.*' => ['string', 'max:255'],
             'auto_ssl' => ['nullable', 'boolean'],
@@ -51,20 +57,48 @@ class WebsiteController extends Controller
         ]);
 
         $domain = strtolower($validated['domain']);
-        $docRoot = $validated['document_root'] ?: "/var/www/{$domain}/public";
+        $deploymentSource = $validated['deployment_source'] ?? 'empty';
+        $projectType = $validated['project_type'] ?? 'laravel';
+        $gitRepo = $validated['git_repository'] ?? null;
+        $gitBranch = !empty($validated['git_branch']) ? $validated['git_branch'] : 'main';
         $systemUser = 'kp_' . Str::slug(explode('.', $domain)[0], '_');
         $aliases = $validated['aliases'] ?? [];
 
+        // Laravel root route auto-direction to /public
+        $docRoot = !empty($validated['document_root']) ? $validated['document_root'] : "/var/www/{$domain}/public";
+        if ($projectType === 'laravel' && ($docRoot === "/var/www/{$domain}" || empty($validated['document_root']))) {
+            $docRoot = "/var/www/{$domain}/public";
+        }
+
+        $zipBase64 = null;
+        if ($deploymentSource === 'zip' && $request->hasFile('zip_file')) {
+            $zipFile = $request->file('zip_file');
+            $zipBase64 = base64_encode(file_get_contents($zipFile->getRealPath()));
+        }
+
         try {
             // 1. Provision on server via Agent
-            $this->agentClient->createWebsite([
+            $agentPayload = [
                 'domain' => $domain,
                 'aliases' => $aliases,
                 'php_version' => $validated['php_version'],
                 'document_root' => $docRoot,
                 'system_user' => $systemUser,
                 'ssl_enabled' => false,
-            ]);
+                'deployment_source' => $deploymentSource,
+                'project_type' => $projectType,
+                'git_repository' => $gitRepo,
+                'git_branch' => $gitBranch,
+            ];
+
+            if ($zipBase64) {
+                $agentPayload['zip_base64'] = $zipBase64;
+            }
+
+            $agentRes = $this->agentClient->createWebsite($agentPayload);
+            if (!empty($agentRes['document_root'])) {
+                $docRoot = $agentRes['document_root'];
+            }
 
             // 2. Persist Website record
             $website = Website::create([
@@ -76,6 +110,11 @@ class WebsiteController extends Controller
                 'ssl_enabled' => false,
                 'force_https' => false,
                 'status' => 'active',
+                'deployment_source' => $deploymentSource,
+                'project_type' => $projectType,
+                'git_repository' => $gitRepo,
+                'git_branch' => $gitBranch,
+                'last_deployed_at' => in_array($deploymentSource, ['zip', 'git']) ? now() : null,
             ]);
 
             // 3. Create Primary Domain record
@@ -86,7 +125,21 @@ class WebsiteController extends Controller
                 'ssl_status' => 'pending',
             ]);
 
-            // 4. Auto-issue SSL if requested
+            // 4. Initial Deployment record if Git source
+            if ($deploymentSource === 'git' && !empty($gitRepo)) {
+                Deployment::create([
+                    'website_id' => $website->id,
+                    'branch' => $gitBranch,
+                    'status' => 'success',
+                    'trigger_source' => 'manual',
+                    'commit_message' => 'Initial repository clone upon website creation',
+                    'log_output' => "Repository {$gitRepo} ({$gitBranch}) cloned successfully into /var/www/{$domain}.",
+                    'duration_seconds' => 1,
+                    'initiated_by_user_id' => $request->user()->id,
+                ]);
+            }
+
+            // 5. Auto-issue SSL if requested
             if (!empty($validated['auto_ssl'])) {
                 try {
                     $email = $validated['ssl_email'] ?: $request->user()->email;
@@ -132,6 +185,8 @@ class WebsiteController extends Controller
                 'payload_summary' => [
                     'domain' => $domain,
                     'php_version' => $validated['php_version'],
+                    'deployment_source' => $deploymentSource,
+                    'document_root' => $docRoot,
                     'ssl_enabled' => $website->ssl_enabled,
                 ],
             ]);

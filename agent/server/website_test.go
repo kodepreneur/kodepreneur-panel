@@ -124,3 +124,45 @@ func TestWebsiteEndpoints(t *testing.T) {
 		t.Fatalf("Expected 200 OK for website deletion, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestWebsiteDeploymentSources(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Environment.IsDev = true
+	router := NewRouter(cfg)
+	handler := router.Handler()
+
+	// 1. Create with Git deployment source
+	gitPayload := []byte(`{
+		"domain": "git-site.com",
+		"php_version": "8.3",
+		"deployment_source": "git",
+		"git_repository": "https://github.com/example/laravel-demo.git",
+		"git_branch": "main",
+		"project_type": "laravel"
+	}`)
+	req := httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(gitPayload))
+	signRequest(req, gitPayload, cfg.Security.SecretKey)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for git website creation, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var gitResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			DocumentRoot string `json:"document_root"`
+			IsLaravel    bool   `json:"is_laravel"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&gitResp); err != nil {
+		t.Fatalf("Failed to decode git response: %v", err)
+	}
+	if !gitResp.Data.IsLaravel {
+		t.Errorf("Expected is_laravel to be true")
+	}
+	if gitResp.Data.DocumentRoot != "/var/www/git-site.com/public" {
+		t.Errorf("Expected document_root to be /var/www/git-site.com/public, got %s", gitResp.Data.DocumentRoot)
+	}
+}

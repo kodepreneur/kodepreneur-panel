@@ -21,6 +21,11 @@ class Website extends Model
         'force_https',
         'status',
         'custom_nginx_config',
+        'deployment_source',
+        'project_type',
+        'git_repository',
+        'git_branch',
+        'last_deployed_at',
     ];
 
     protected function casts(): array
@@ -29,6 +34,7 @@ class Website extends Model
             'aliases' => 'array',
             'ssl_enabled' => 'boolean',
             'force_https' => 'boolean',
+            'last_deployed_at' => 'datetime',
         ];
     }
 

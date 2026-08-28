@@ -1,9 +1,12 @@
 package server
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -218,13 +221,19 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Domain       string   `json:"domain"`
-		Aliases      []string `json:"aliases"`
-		PhpVersion   string   `json:"php_version"`
-		DocumentRoot string   `json:"document_root"`
-		SystemUser   string   `json:"system_user"`
-		SslEnabled   bool     `json:"ssl_enabled"`
-		ForceHttps   bool     `json:"force_https"`
+		Domain           string   `json:"domain"`
+		Aliases          []string `json:"aliases"`
+		PhpVersion       string   `json:"php_version"`
+		DocumentRoot     string   `json:"document_root"`
+		SystemUser       string   `json:"system_user"`
+		SslEnabled       bool     `json:"ssl_enabled"`
+		ForceHttps       bool     `json:"force_https"`
+		DeploymentSource string   `json:"deployment_source"` // "empty", "zip", "git"
+		GitRepository    string   `json:"git_repository"`
+		GitBranch        string   `json:"git_branch"`
+		ProjectType      string   `json:"project_type"` // "laravel", "generic_php", "static", "auto"
+		ZipBase64        string   `json:"zip_base64"`
+		ZipPath          string   `json:"zip_path"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -240,11 +249,21 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 	if payload.SystemUser == "" {
 		payload.SystemUser = fmt.Sprintf("kp_%s", strings.ReplaceAll(strings.Split(payload.Domain, ".")[0], "-", "_"))
 	}
-	if payload.DocumentRoot == "" {
-		payload.DocumentRoot = fmt.Sprintf("/var/www/%s/public", payload.Domain)
-	}
 	if payload.PhpVersion == "" {
 		payload.PhpVersion = "8.3"
+	}
+	if payload.DeploymentSource == "" {
+		payload.DeploymentSource = "empty"
+	}
+
+	baseDir := fmt.Sprintf("/var/www/%s", payload.Domain)
+	if payload.DocumentRoot != "" && strings.HasSuffix(payload.DocumentRoot, "/public") {
+		baseDir = filepath.Dir(payload.DocumentRoot)
+	}
+	realBaseDir := baseDir
+	if r.cfg.Environment.IsDev && strings.HasPrefix(baseDir, "/var/www") {
+		realBaseDir = filepath.Join(os.TempDir(), "kodepreneur", "www", strings.TrimPrefix(baseDir, "/var/www"))
+		_ = os.MkdirAll(realBaseDir, 0755)
 	}
 
 	if err := r.phpManager.ProvisionUser(payload.SystemUser, payload.Domain); err != nil {
@@ -252,6 +271,57 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// 1. Handle Deployment Sources
+	switch payload.DeploymentSource {
+	case "git":
+		if payload.GitRepository != "" {
+			if err := r.gitRunner.CloneRepo(payload.GitRepository, payload.GitBranch, realBaseDir, payload.SystemUser); err != nil {
+				respondError(w, http.StatusInternalServerError, "GIT_CLONE_FAILED", err.Error())
+				return
+			}
+		}
+	case "zip":
+		if payload.ZipBase64 != "" {
+			zipBytes, err := base64.StdEncoding.DecodeString(payload.ZipBase64)
+			if err != nil {
+				respondError(w, http.StatusBadRequest, "INVALID_ZIP_PAYLOAD", "Failed to decode base64 zip payload")
+				return
+			}
+			if err := r.fileManager.ExtractZipBytes(zipBytes, realBaseDir); err != nil {
+				respondError(w, http.StatusInternalServerError, "ZIP_EXTRACT_FAILED", err.Error())
+				return
+			}
+		} else if payload.ZipPath != "" {
+			if err := r.fileManager.ExtractZipFile(payload.ZipPath, realBaseDir); err != nil {
+				respondError(w, http.StatusInternalServerError, "ZIP_EXTRACT_FAILED", err.Error())
+				return
+			}
+		}
+	case "empty":
+		_ = os.MkdirAll(realBaseDir, 0755)
+	}
+
+	// 2. Auto-detect Laravel & direct root route to /public
+	isLaravel := payload.ProjectType == "laravel"
+	if !isLaravel && (payload.ProjectType == "" || payload.ProjectType == "auto") {
+		artisanFile := filepath.Join(realBaseDir, "artisan")
+		publicDir := filepath.Join(realBaseDir, "public")
+		if _, err := os.Stat(artisanFile); err == nil {
+			isLaravel = true
+		} else if _, err := os.Stat(publicDir); err == nil {
+			isLaravel = true
+		}
+	}
+
+	if isLaravel {
+		if payload.DocumentRoot == "" || payload.DocumentRoot == baseDir {
+			payload.DocumentRoot = filepath.Join(baseDir, "public")
+		}
+	} else if payload.DocumentRoot == "" {
+		payload.DocumentRoot = filepath.Join(baseDir, "public")
+	}
+
+	// 3. Prepare Webroot directory and welcome index if empty
 	if err := r.phpManager.PrepareWebroot(payload.DocumentRoot, payload.SystemUser); err != nil {
 		respondError(w, http.StatusInternalServerError, "WEBROOT_CREATION_FAILED", err.Error())
 		return
@@ -292,11 +362,13 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 	respondJSON(w, http.StatusCreated, map[string]any{
 		"success": true,
 		"data": map[string]any{
-			"domain":        payload.Domain,
-			"vhost_path":    vhostPath,
-			"system_user":   payload.SystemUser,
-			"document_root": payload.DocumentRoot,
-			"php_version":   payload.PhpVersion,
+			"domain":            payload.Domain,
+			"vhost_path":        vhostPath,
+			"system_user":       payload.SystemUser,
+			"document_root":     payload.DocumentRoot,
+			"php_version":       payload.PhpVersion,
+			"deployment_source": payload.DeploymentSource,
+			"is_laravel":        isLaravel,
 		},
 	})
 }

@@ -86,12 +86,18 @@ class MockAgentClient implements AgentClientInterface
 
     public function createWebsite(array $payload): array
     {
+        $domain = $payload['domain'] ?? 'example.com';
+        $docRoot = $payload['document_root'] ?? "/var/www/{$domain}/public";
+        $isLaravel = ($payload['project_type'] ?? '') === 'laravel' || str_ends_with($docRoot, '/public');
+
         return [
-            'domain' => $payload['domain'] ?? 'example.com',
-            'vhost_path' => "/etc/nginx/sites-available/" . ($payload['domain'] ?? 'example.com') . ".conf",
+            'domain' => $domain,
+            'vhost_path' => "/etc/nginx/sites-available/{$domain}.conf",
             'system_user' => $payload['system_user'] ?? 'kp_user',
-            'document_root' => $payload['document_root'] ?? '/var/www/example.com/public',
+            'document_root' => $docRoot,
             'php_version' => $payload['php_version'] ?? '8.3',
+            'deployment_source' => $payload['deployment_source'] ?? 'empty',
+            'is_laravel' => $isLaravel,
         ];
     }
 

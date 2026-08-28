@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Deployment;
 use App\Models\User;
 use App\Models\Website;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class WebsiteTest extends TestCase
@@ -45,6 +47,8 @@ class WebsiteTest extends TestCase
         $response = $this->actingAs($user)->post('/websites', [
             'domain' => 'app.example.com',
             'php_version' => '8.4',
+            'deployment_source' => 'empty',
+            'project_type' => 'laravel',
             'document_root' => '/var/www/app.example.com/public',
         ]);
 
@@ -54,6 +58,8 @@ class WebsiteTest extends TestCase
         $this->assertDatabaseHas('websites', [
             'domain' => 'app.example.com',
             'php_version' => '8.4',
+            'deployment_source' => 'empty',
+            'document_root' => '/var/www/app.example.com/public',
         ]);
         $this->assertDatabaseHas('domains', [
             'domain' => 'app.example.com',
@@ -62,6 +68,81 @@ class WebsiteTest extends TestCase
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'website.create',
         ]);
+    }
+
+    public function test_user_can_create_website_with_git_repo(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'git-app.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'git',
+            'project_type' => 'laravel',
+            'git_repository' => 'https://github.com/example/laravel-starter.git',
+            'git_branch' => 'main',
+        ]);
+
+        $website = Website::where('domain', 'git-app.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertDatabaseHas('websites', [
+            'domain' => 'git-app.com',
+            'deployment_source' => 'git',
+            'git_repository' => 'https://github.com/example/laravel-starter.git',
+            'git_branch' => 'main',
+            'document_root' => '/var/www/git-app.com/public',
+        ]);
+
+        $this->assertDatabaseHas('deployments', [
+            'website_id' => $website->id,
+            'branch' => 'main',
+            'status' => 'success',
+        ]);
+    }
+
+    public function test_user_can_create_website_with_zip_file(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        // Create a fake zip file
+        $fakeZipContent = "PK\x03\x04fake zip content";
+        $file = UploadedFile::fake()->createWithContent('project.zip', $fakeZipContent);
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'zip-app.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'zip',
+            'project_type' => 'laravel',
+            'zip_file' => $file,
+        ]);
+
+        $website = Website::where('domain', 'zip-app.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertDatabaseHas('websites', [
+            'domain' => 'zip-app.com',
+            'deployment_source' => 'zip',
+            'document_root' => '/var/www/zip-app.com/public',
+        ]);
+    }
+
+    public function test_laravel_project_auto_routes_to_public(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        // When document_root is omitted or set to root /var/www/laravel-site.com
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'laravel-site.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'empty',
+            'project_type' => 'laravel',
+            'document_root' => '/var/www/laravel-site.com',
+        ]);
+
+        $website = Website::where('domain', 'laravel-site.com')->firstOrFail();
+        // Should automatically direct to /public
+        $this->assertEquals('/var/www/laravel-site.com/public', $website->document_root);
     }
 
     public function test_user_cannot_create_duplicate_website(): void

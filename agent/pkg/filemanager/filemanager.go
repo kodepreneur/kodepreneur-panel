@@ -1,6 +1,8 @@
 package filemanager
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -134,4 +136,76 @@ func (m *Manager) DeleteEntry(basePath, relativePath string) error {
 		return fmt.Errorf("cannot delete base root directory")
 	}
 	return os.RemoveAll(target)
+}
+
+// ExtractZip extracts a zip archive safely, protecting against Zip Slip path traversal.
+func (m *Manager) ExtractZip(reader io.ReaderAt, size int64, destDir string) error {
+	zipReader, err := zip.NewReader(reader, size)
+	if err != nil {
+		return fmt.Errorf("failed to open zip archive: %w", err)
+	}
+
+	cleanDest := filepath.Clean(destDir)
+	if err := os.MkdirAll(cleanDest, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	for _, file := range zipReader.File {
+		targetPath := filepath.Join(cleanDest, file.Name)
+		if !strings.HasPrefix(filepath.Clean(targetPath), cleanDest) {
+			return fmt.Errorf("illegal file path in zip: %s", file.Name)
+		}
+
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(targetPath, 0755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			return fmt.Errorf("failed to create parent directory for %s: %w", targetPath, err)
+		}
+
+		rc, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("failed to read file %s inside zip: %w", file.Name, err)
+		}
+
+		outFile, err := os.OpenFile(targetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			rc.Close()
+			return fmt.Errorf("failed to write extracted file %s: %w", targetPath, err)
+		}
+
+		_, copyErr := io.Copy(outFile, rc)
+		rc.Close()
+		outFile.Close()
+		if copyErr != nil {
+			return fmt.Errorf("failed to extract file %s: %w", targetPath, copyErr)
+		}
+	}
+
+	return nil
+}
+
+// ExtractZipBytes extracts zip bytes into destDir.
+func (m *Manager) ExtractZipBytes(data []byte, destDir string) error {
+	return m.ExtractZip(bytes.NewReader(data), int64(len(data)), destDir)
+}
+
+// ExtractZipFile opens a zip file on disk and extracts it into destDir.
+func (m *Manager) ExtractZipFile(zipFilePath, destDir string) error {
+	f, err := os.Open(zipFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("failed to stat zip file: %w", err)
+	}
+
+	return m.ExtractZip(f, info.Size(), destDir)
 }

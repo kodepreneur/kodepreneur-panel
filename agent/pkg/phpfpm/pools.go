@@ -104,11 +104,25 @@ func (m *Manager) ProvisionUser(username, domain string) error {
 
 // PrepareWebroot creates document root and permissions.
 func (m *Manager) PrepareWebroot(docRoot, username string) error {
+	if m.isDev || runtime.GOOS != "linux" {
+		if strings.HasPrefix(docRoot, "/var/www") {
+			mockRoot := filepath.Join(os.TempDir(), "kodepreneur", "www", strings.TrimPrefix(docRoot, "/var/www"))
+			_ = os.MkdirAll(mockRoot, 0755)
+			indexFile := filepath.Join(mockRoot, "index.php")
+			if _, err := os.Stat(indexFile); os.IsNotExist(err) {
+				samplePhp := "<?php echo 'Welcome to Kodepreneur';\n"
+				_ = os.WriteFile(indexFile, []byte(samplePhp), 0644)
+			}
+			return nil
+		}
+		_ = os.MkdirAll(docRoot, 0755)
+		return nil
+	}
+
 	if err := os.MkdirAll(docRoot, 0750); err != nil {
 		return fmt.Errorf("failed to create document root %s: %w", docRoot, err)
 	}
 
-	// In dev mode or on non-Linux, write a sample index.php if empty
 	indexFile := filepath.Join(docRoot, "index.php")
 	if _, err := os.Stat(indexFile); os.IsNotExist(err) {
 		samplePhp := `<?php
@@ -117,10 +131,6 @@ echo "<p>PHP Version: " . PHP_VERSION . "</p>";
 echo "<p>Server Time: " . date('Y-m-d H:i:s') . " UTC</p>";
 `
 		_ = os.WriteFile(indexFile, []byte(samplePhp), 0644)
-	}
-
-	if m.isDev || runtime.GOOS != "linux" {
-		return nil
 	}
 
 	// Chown to user:www-data

@@ -23,6 +23,11 @@ return new class extends Migration
             $table->boolean('force_https')->default(false);
             $table->string('status', 32)->default('active'); // active, suspended, provisioning, error
             $table->text('custom_nginx_config')->nullable();
+            $table->string('deployment_source', 32)->default('empty'); // empty, zip, git
+            $table->string('project_type', 32)->default('laravel'); // laravel, generic_php, static, auto
+            $table->string('git_repository')->nullable();
+            $table->string('git_branch', 100)->nullable()->default('main');
+            $table->timestamp('last_deployed_at')->nullable();
             $table->timestamps();
         });
 
