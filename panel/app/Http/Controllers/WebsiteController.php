@@ -12,6 +12,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -79,7 +80,7 @@ class WebsiteController extends Controller
             $zipFile = $request->file('zip_file');
             $storedName = 'upload_' . Str::uuid()->toString() . '.zip';
             $tempZipPath = $zipFile->storeAs('temp-zips', $storedName, 'local');
-            $fullZipPath = storage_path('app/' . $tempZipPath);
+            $fullZipPath = Storage::disk('local')->path($tempZipPath);
         }
 
         try {

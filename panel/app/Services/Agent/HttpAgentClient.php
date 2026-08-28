@@ -44,7 +44,7 @@ class HttpAgentClient implements AgentClientInterface
 
     public function createWebsite(array $payload): array
     {
-        $res = $this->request('POST', '/api/v1/websites', $payload);
+        $res = $this->request('POST', '/api/v1/websites', $payload, 600);
         return $res['data'] ?? [];
     }
 
