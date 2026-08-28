@@ -82,12 +82,15 @@ php artisan migrate --force --seed >/dev/null 2>&1
 
 # Provision initial admin user
 php artisan tinker --execute="
-\$role = \App\Models\Role::where('slug', 'super-admin')->first();
-\$u = \App\Models\User::firstOrNew(['email' => '${ADMIN_EMAIL}']);
-\$u->name = 'Administrator';
-\$u->password = \Illuminate\Support\Facades\Hash::make('${ADMIN_PASSWORD}');
-if (\$role) { \$u->role_id = \$role->id; }
-\$u->save();
+\$role = \App\Models\Role::firstOrCreate(['slug' => 'super-admin'], ['name' => 'Super Administrator', 'permissions' => ['*']]);
+\$u = \App\Models\User::updateOrCreate(
+    ['email' => getenv('ADMIN_EMAIL')],
+    [
+        'name' => 'Administrator',
+        'password' => \Illuminate\Support\Facades\Hash::make(getenv('ADMIN_PASSWORD')),
+        'role_id' => \$role->id,
+    ]
+);
 " >/dev/null 2>&1
 
 # Build frontend assets if npm is installed and node_modules not present

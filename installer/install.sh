@@ -156,7 +156,7 @@ fi
 
 # Auto-generate password if still empty
 if [ -z "$ADMIN_PASSWORD" ]; then
-    ADMIN_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9!@#$%^&*()_+' | head -c 16)
+    ADMIN_PASSWORD=$(openssl rand -hex 12)
 fi
 
 export ADMIN_EMAIL ADMIN_PASSWORD PANEL_PORT
