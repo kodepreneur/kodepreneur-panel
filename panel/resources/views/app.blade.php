@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title inertia>{{ config('app.name', 'Kodepreneur Panel') }}</title>
+        <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <!-- Initialize Theme (Dark/Light) immediately before render -->
         <script>

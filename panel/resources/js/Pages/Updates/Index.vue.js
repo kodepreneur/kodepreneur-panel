@@ -25,17 +25,30 @@ const stepLabels = [
     'Recompiling Go Agent & reloading services',
 ];
 const cliCommand = 'curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/update.sh | sudo bash';
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta?.content) {
+        return meta.content;
+    }
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    if (match) {
+        return decodeURIComponent(match[1]);
+    }
+    return '';
+}
 async function checkForUpdates() {
     if (isChecking.value)
         return;
     isChecking.value = true;
     try {
+        const token = getCsrfToken();
         const res = await fetch('/updates/check', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                'X-CSRF-TOKEN': token,
+                'X-XSRF-TOKEN': token,
             },
         });
         const data = await res.json();
@@ -63,12 +76,14 @@ function startUpdate() {
             currentStep.value++;
         }
     }, 1200);
+    const token = getCsrfToken();
     fetch('/updates/execute', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            'X-CSRF-TOKEN': token,
+            'X-XSRF-TOKEN': token,
         },
         body: JSON.stringify({
             repository: info.value.repository,
