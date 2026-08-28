@@ -94,6 +94,7 @@ func (r *Runner) Execute(req DeploymentRequest) (*DeploymentResult, error) {
 	// Build shell script executed as system_user
 	var scriptBuilder strings.Builder
 	scriptBuilder.WriteString("set -e\n")
+	scriptBuilder.WriteString("export PATH=\"/usr/local/bin:/usr/bin:/bin:$PATH\"\n")
 	scriptBuilder.WriteString(fmt.Sprintf("cd %s\n", req.WorkingDir))
 
 	for _, cmdStr := range req.Commands {

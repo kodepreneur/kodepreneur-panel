@@ -411,7 +411,7 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan db:seed --force; fi")
 		}
 		if payload.LaravelSetup.RunNpmBuild.Bool() {
-			setupCommands = append(setupCommands, "if [ -f package.json ]; then npm install --silent 2>/dev/null || npm install; npm run build; fi")
+			setupCommands = append(setupCommands, "if [ -f package.json ]; then if [ ! -d node_modules/vite ] && [ -f node_modules/.bin/vite ]; then rm -rf node_modules package-lock.json; fi; NODE_ENV=development npm install --include=dev --no-audit; npm run build; fi")
 		}
 		if payload.LaravelSetup.RunOptimize.Bool() {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi")

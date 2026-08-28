@@ -53,7 +53,7 @@ class DeploymentController extends Controller
             $commands[] = 'if [ -f artisan ]; then php artisan migrate --force; php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi';
         }
 
-        $commands[] = 'if [ -f package.json ]; then npm ci || npm install; npm run build; fi';
+        $commands[] = 'if [ -f package.json ]; then if [ ! -d node_modules/vite ] && [ -f node_modules/.bin/vite ]; then rm -rf node_modules package-lock.json; fi; NODE_ENV=development npm install --include=dev --no-audit; npm run build; fi';
 
         try {
             $result = $this->agentClient->executeDeployment([
