@@ -82,10 +82,11 @@ php artisan migrate --force --seed >/dev/null 2>&1
 
 # Provision initial admin user
 php artisan tinker --execute="
+\$role = \App\Models\Role::where('slug', 'super-admin')->first();
 \$u = \App\Models\User::firstOrNew(['email' => '${ADMIN_EMAIL}']);
 \$u->name = 'Administrator';
 \$u->password = \Illuminate\Support\Facades\Hash::make('${ADMIN_PASSWORD}');
-\$u->role = 'admin';
+if (\$role) { \$u->role_id = \$role->id; }
 \$u->save();
 " >/dev/null 2>&1
 
