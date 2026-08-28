@@ -78,14 +78,14 @@ function deleteJob(job: CronJob) {
             <!-- Header -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 class="text-base font-semibold text-white tracking-tight">Cron Schedule Manager</h2>
-                    <p class="text-xs text-surface-400 mt-0.5">
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white tracking-tight">Cron Schedule Manager</h2>
+                    <p class="text-xs text-slate-500 dark:text-surface-400 mt-0.5">
                         Automate periodic server tasks, Laravel scheduler runs, and maintenance scripts
                     </p>
                 </div>
                 <button
                     @click="isCreateModalOpen = true"
-                    class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/20 flex items-center gap-1.5 transition"
+                    class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition"
                 >
                     <Plus class="w-4 h-4" />
                     <span>Create Cron Job</span>
@@ -93,16 +93,16 @@ function deleteJob(job: CronJob) {
             </div>
 
             <!-- Table Card -->
-            <div class="rounded-2xl bg-surface-900/60 border border-surface-800/80 shadow-lg overflow-hidden">
+            <div class="rounded-2xl bg-white dark:bg-surface-900/60 border border-slate-200/80 dark:border-surface-800/80 shadow-sm dark:shadow-xl overflow-hidden">
                 <div v-if="cronJobs.data.length === 0" class="text-center py-14 px-4">
-                    <Clock class="w-10 h-10 text-surface-600 mx-auto mb-3" />
-                    <h3 class="text-sm font-medium text-surface-200">No scheduled cron jobs</h3>
-                    <p class="text-xs text-surface-400 mt-1 max-w-sm mx-auto">
+                    <Clock class="w-10 h-10 text-slate-300 dark:text-surface-600 mx-auto mb-3" />
+                    <h3 class="text-sm font-medium text-slate-700 dark:text-surface-200">No scheduled cron jobs</h3>
+                    <p class="text-xs text-slate-500 dark:text-surface-400 mt-1 max-w-sm mx-auto">
                         Add scheduled background tasks with automated Linux crontab synchronization.
                     </p>
                     <button
                         @click="isCreateModalOpen = true"
-                        class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition shadow-lg shadow-brand-600/20"
+                        class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition shadow-md shadow-brand-600/20"
                     >
                         <Plus class="w-3.5 h-3.5" />
                         <span>Add First Cron Job</span>
@@ -111,7 +111,7 @@ function deleteJob(job: CronJob) {
 
                 <div v-else class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-surface-950/50 text-surface-400 uppercase text-[10px] tracking-wider border-b border-surface-800">
+                        <thead class="bg-slate-50 dark:bg-surface-950/50 text-slate-500 dark:text-surface-400 uppercase text-[10px] tracking-wider border-b border-slate-200/80 dark:border-surface-800">
                             <tr>
                                 <th class="py-3.5 px-4 font-semibold">Schedule</th>
                                 <th class="py-3.5 px-4 font-semibold">Command</th>
@@ -120,29 +120,29 @@ function deleteJob(job: CronJob) {
                                 <th class="py-3.5 px-4 font-semibold text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-surface-800/60">
+                        <tbody class="divide-y divide-slate-100 dark:divide-surface-800/60">
                             <tr
                                 v-for="job in cronJobs.data"
                                 :key="job.id"
-                                class="hover:bg-surface-800/30 transition"
+                                class="hover:bg-slate-50/80 dark:hover:bg-surface-800/30 transition"
                             >
-                                <td class="py-3.5 px-4 font-mono font-semibold text-emerald-400 text-xs">
+                                <td class="py-3.5 px-4 font-mono font-semibold text-emerald-600 dark:text-emerald-400 text-xs">
                                     <div class="flex items-center gap-2">
-                                        <div class="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                                        <div class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
                                             <Clock class="w-3.5 h-3.5" />
                                         </div>
                                         <span>{{ job.schedule }}</span>
                                     </div>
                                 </td>
-                                <td class="py-3.5 px-4 font-mono text-[11px] text-surface-300 max-w-md truncate">
+                                <td class="py-3.5 px-4 font-mono text-[11px] text-slate-700 dark:text-surface-300 max-w-md truncate">
                                     {{ job.command }}
                                 </td>
                                 <td class="py-3.5 px-4">
-                                    <div class="text-[11px] text-white">
-                                        <span v-if="job.website" class="font-mono text-brand-400 font-semibold">{{ job.website.domain }}</span>
-                                        <span v-else class="text-surface-400">System Global</span>
+                                    <div class="text-[11px] text-slate-900 dark:text-white">
+                                        <span v-if="job.website" class="font-mono text-brand-600 dark:text-brand-400 font-semibold">{{ job.website.domain }}</span>
+                                        <span v-else class="text-slate-500 dark:text-surface-400">System Global</span>
                                     </div>
-                                    <div class="text-[10px] font-mono text-surface-500">User: {{ job.system_user }}</div>
+                                    <div class="text-[10px] font-mono text-slate-400 dark:text-surface-500">User: {{ job.system_user }}</div>
                                 </td>
                                 <td class="py-3.5 px-4">
                                     <button
@@ -150,8 +150,8 @@ function deleteJob(job: CronJob) {
                                         :class="[
                                             'px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider transition',
                                             job.is_active
-                                                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                                                : 'bg-surface-800 border border-surface-700 text-surface-500 hover:bg-surface-700'
+                                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-400 hover:bg-emerald-100'
+                                                : 'bg-slate-100 dark:bg-surface-800 border border-slate-200 dark:border-surface-700 text-slate-500 dark:text-surface-500 hover:bg-slate-200'
                                         ]"
                                     >
                                         {{ job.is_active ? 'Active' : 'Disabled' }}
@@ -160,7 +160,7 @@ function deleteJob(job: CronJob) {
                                 <td class="py-3.5 px-4 text-right">
                                     <button
                                         @click="deleteJob(job)"
-                                        class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
+                                        class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
                                         title="Delete Cron Job"
                                     >
                                         <Trash2 class="w-3.5 h-3.5" />
@@ -175,18 +175,18 @@ function deleteJob(job: CronJob) {
             <!-- Create Modal -->
             <div
                 v-if="isCreateModalOpen"
-                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-surface-950/80 backdrop-blur-sm"
             >
-                <div class="w-full max-w-lg rounded-2xl bg-surface-900 border border-surface-800 p-6 shadow-2xl space-y-4">
-                    <h3 class="text-sm font-semibold text-white">Create New Cron Job</h3>
+                <div class="w-full max-w-lg rounded-2xl bg-white dark:bg-surface-900 border border-slate-200/90 dark:border-surface-800 p-6 shadow-2xl space-y-4">
+                    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Create New Cron Job</h3>
 
                     <form @submit.prevent="submitCreateCron" class="space-y-4">
                         <div>
-                            <label class="block text-xs font-medium text-surface-300 mb-1">Target Website (Optional)</label>
+                            <label class="block text-xs font-medium text-slate-700 dark:text-surface-300 mb-1">Target Website (Optional)</label>
                             <select
                                 v-model="cronForm.website_id"
                                 @change="onWebsiteChange"
-                                class="w-full px-3.5 py-2.5 rounded-xl bg-surface-950/60 border border-surface-800 text-xs text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                             >
                                 <option value="">System Default</option>
                                 <option v-for="w in websites" :key="w.id" :value="w.id">
@@ -197,8 +197,8 @@ function deleteJob(job: CronJob) {
 
                         <div>
                             <div class="flex items-center justify-between mb-1">
-                                <label class="text-xs font-medium text-surface-300">Cron Schedule (5-field)</label>
-                                <span class="text-[10px] font-mono text-surface-500">* * * * *</span>
+                                <label class="text-xs font-medium text-slate-700 dark:text-surface-300">Cron Schedule (5-field)</label>
+                                <span class="text-[10px] font-mono text-slate-400 dark:text-surface-500">* * * * *</span>
                             </div>
                             <div class="flex flex-wrap gap-1.5 mb-2">
                                 <button
@@ -209,8 +209,8 @@ function deleteJob(job: CronJob) {
                                     :class="[
                                         'px-2 py-0.5 rounded text-[10px] font-mono transition',
                                         cronForm.schedule === p.value
-                                            ? 'bg-brand-500/20 border border-brand-500/40 text-brand-300'
-                                            : 'bg-surface-800 text-surface-400 hover:text-white'
+                                            ? 'bg-brand-50 text-brand-700 border border-brand-200 dark:bg-brand-500/20 dark:border-brand-500/40 dark:text-brand-300 font-semibold'
+                                            : 'bg-slate-100 dark:bg-surface-800 text-slate-600 dark:text-surface-400 hover:bg-slate-200 dark:hover:text-white'
                                     ]"
                                 >
                                     {{ p.label }}
@@ -221,33 +221,33 @@ function deleteJob(job: CronJob) {
                                 type="text"
                                 required
                                 placeholder="* * * * *"
-                                class="w-full px-3.5 py-2.5 rounded-xl bg-surface-950/60 border border-surface-800 text-xs text-white placeholder-surface-500 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-500 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                             />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-medium text-surface-300 mb-1">Command to Execute</label>
+                            <label class="block text-xs font-medium text-slate-700 dark:text-surface-300 mb-1">Command to Execute</label>
                             <input
                                 v-model="cronForm.command"
                                 type="text"
                                 required
                                 placeholder="php /var/www/app/artisan schedule:run >> /dev/null 2>&1"
-                                class="w-full px-3.5 py-2.5 rounded-xl bg-surface-950/60 border border-surface-800 text-xs text-white placeholder-surface-500 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-500 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                             />
                         </div>
 
-                        <div class="flex items-center justify-end gap-3 pt-3 border-t border-surface-800">
+                        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-surface-800">
                             <button
                                 type="button"
                                 @click="isCreateModalOpen = false"
-                                class="px-3.5 py-2 rounded-xl text-xs text-surface-400 hover:text-white"
+                                class="px-3.5 py-2 rounded-xl text-xs text-slate-600 hover:text-slate-900 dark:text-surface-400 dark:hover:text-white"
                             >
                                 Cancel
                             </button>
                             <button
                                 type="submit"
                                 :disabled="cronForm.processing"
-                                class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-lg shadow-brand-600/20 disabled:opacity-50"
+                                class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 disabled:opacity-50"
                             >
                                 {{ cronForm.processing ? 'Creating...' : 'Create Cron Job' }}
                             </button>

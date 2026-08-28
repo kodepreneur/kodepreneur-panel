@@ -103,7 +103,7 @@ function deleteFileEntry(entry: FileEntry) {
 }
 
 function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -117,20 +117,20 @@ function formatBytes(bytes: number): string {
             <!-- Header & Root Switcher -->
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h2 class="text-base font-semibold text-white tracking-tight">Path-Jailed File Manager</h2>
-                    <p class="text-xs text-surface-400 mt-0.5">
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white tracking-tight">Path-Jailed File Manager</h2>
+                    <p class="text-xs text-slate-500 dark:text-surface-400 mt-0.5">
                         Securely browse, edit configuration files, and manage webroot assets
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-2 bg-surface-900 border border-surface-800 rounded-xl px-3 py-1.5">
-                        <Globe class="w-3.5 h-3.5 text-brand-400" />
+                    <div class="flex items-center gap-2 bg-white dark:bg-surface-900 border border-slate-200/80 dark:border-surface-800 rounded-xl px-3 py-1.5 shadow-sm">
+                        <Globe class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
                         <select
                             :value="selectedWebsite?.id"
                             @change="onWebsiteChange"
-                            class="bg-transparent text-xs text-white focus:outline-none font-mono"
+                            class="bg-transparent text-xs text-slate-800 dark:text-white focus:outline-none font-mono"
                         >
-                            <option v-for="w in websites" :key="w.id" :value="w.id" class="bg-surface-900 text-white">
+                            <option v-for="w in websites" :key="w.id" :value="w.id" class="bg-white dark:bg-surface-900 text-slate-900 dark:text-white">
                                 {{ w.domain }}
                             </option>
                         </select>
@@ -139,38 +139,38 @@ function formatBytes(bytes: number): string {
             </div>
 
             <!-- Explorer Card -->
-            <div class="rounded-2xl bg-surface-900/60 border border-surface-800/80 shadow-lg overflow-hidden">
+            <div class="rounded-2xl bg-white dark:bg-surface-900/60 border border-slate-200/80 dark:border-surface-800/80 shadow-sm dark:shadow-xl overflow-hidden">
                 <!-- Navigation Bar -->
-                <div class="p-3.5 bg-surface-950/60 border-b border-surface-800 flex items-center justify-between gap-3 text-xs">
-                    <div class="flex items-center gap-2 font-mono text-surface-300 overflow-x-auto">
+                <div class="p-3.5 bg-slate-50 dark:bg-surface-950/60 border-b border-slate-200/80 dark:border-surface-800 flex items-center justify-between gap-3 text-xs">
+                    <div class="flex items-center gap-2 font-mono text-slate-600 dark:text-surface-300 overflow-x-auto">
                         <button
                             v-if="currentPath"
                             @click="goUp"
-                            class="p-1 rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-300 mr-1"
+                            class="p-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-300 mr-1"
                             title="Go Up"
                         >
                             <ArrowLeft class="w-3.5 h-3.5" />
                         </button>
-                        <button @click="navigateToPath('')" class="text-brand-400 hover:underline">
+                        <button @click="navigateToPath('')" class="text-brand-600 dark:text-brand-400 hover:underline font-semibold">
                             /var/www/{{ selectedWebsite?.domain || 'root' }}
                         </button>
-                        <span v-if="currentPath" class="text-surface-600">/</span>
-                        <span v-if="currentPath" class="text-white">{{ currentPath }}</span>
+                        <span v-if="currentPath" class="text-slate-300 dark:text-surface-600">/</span>
+                        <span v-if="currentPath" class="text-slate-900 dark:text-white font-medium">{{ currentPath }}</span>
                     </div>
                 </div>
 
                 <!-- Files Table -->
                 <div v-if="files.length === 0" class="text-center py-14 px-4">
-                    <Folder class="w-10 h-10 text-surface-600 mx-auto mb-3" />
-                    <h3 class="text-sm font-medium text-surface-200">Directory is empty</h3>
-                    <p class="text-xs text-surface-400 mt-1 max-w-sm mx-auto">
+                    <Folder class="w-10 h-10 text-slate-300 dark:text-surface-600 mx-auto mb-3" />
+                    <h3 class="text-sm font-medium text-slate-700 dark:text-surface-200">Directory is empty</h3>
+                    <p class="text-xs text-slate-500 dark:text-surface-400 mt-1 max-w-sm mx-auto">
                         No files or folders found in this directory.
                     </p>
                 </div>
 
                 <div v-else class="overflow-x-auto">
                     <table class="w-full text-left text-xs">
-                        <thead class="bg-surface-950/50 text-surface-400 uppercase text-[10px] tracking-wider border-b border-surface-800">
+                        <thead class="bg-slate-50 dark:bg-surface-950/50 text-slate-500 dark:text-surface-400 uppercase text-[10px] tracking-wider border-b border-slate-200/80 dark:border-surface-800">
                             <tr>
                                 <th class="py-3.5 px-4 font-semibold">Name</th>
                                 <th class="py-3.5 px-4 font-semibold">Size</th>
@@ -179,20 +179,20 @@ function formatBytes(bytes: number): string {
                                 <th class="py-3.5 px-4 font-semibold text-right">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-surface-800/60">
+                        <tbody class="divide-y divide-slate-100 dark:divide-surface-800/60">
                             <tr
                                 v-for="file in files"
                                 :key="file.name"
-                                class="hover:bg-surface-800/30 transition"
+                                class="hover:bg-slate-50/80 dark:hover:bg-surface-800/30 transition"
                             >
-                                <td class="py-3 px-4 font-mono font-medium text-white">
+                                <td class="py-3 px-4 font-mono font-medium text-slate-900 dark:text-white">
                                     <div class="flex items-center gap-2.5">
                                         <div
                                             :class="[
                                                 'p-1.5 rounded-lg shrink-0',
                                                 file.is_dir
-                                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                                                    : 'bg-brand-500/10 text-brand-400 border border-brand-500/20'
+                                                    ? 'bg-amber-50 text-amber-600 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20'
+                                                    : 'bg-indigo-50 text-brand-600 border border-indigo-200 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/20'
                                             ]"
                                         >
                                             <Folder v-if="file.is_dir" class="w-3.5 h-3.5" />
@@ -201,20 +201,20 @@ function formatBytes(bytes: number): string {
                                         <button
                                             v-if="file.is_dir"
                                             @click="navigateToPath(file.path)"
-                                            class="text-amber-300 hover:underline font-semibold text-left"
+                                            class="text-amber-700 dark:text-amber-300 hover:underline font-semibold text-left"
                                         >
                                             {{ file.name }}
                                         </button>
-                                        <span v-else class="text-surface-200">{{ file.name }}</span>
+                                        <span v-else class="text-slate-800 dark:text-surface-200">{{ file.name }}</span>
                                     </div>
                                 </td>
-                                <td class="py-3 px-4 font-mono text-[11px] text-surface-400">
+                                <td class="py-3 px-4 font-mono text-[11px] text-slate-500 dark:text-surface-400">
                                     {{ file.is_dir ? '—' : formatBytes(file.size_bytes) }}
                                 </td>
-                                <td class="py-3 px-4 font-mono text-[10px] text-surface-500">
+                                <td class="py-3 px-4 font-mono text-[10px] text-slate-400 dark:text-surface-500">
                                     {{ file.permissions }}
                                 </td>
-                                <td class="py-3 px-4 font-mono text-[11px] text-surface-500">
+                                <td class="py-3 px-4 font-mono text-[11px] text-slate-400 dark:text-surface-500">
                                     {{ new Date(file.modified_at).toLocaleDateString() }}
                                 </td>
                                 <td class="py-3 px-4 text-right">
@@ -222,14 +222,14 @@ function formatBytes(bytes: number): string {
                                         <button
                                             v-if="!file.is_dir"
                                             @click="openFileEditor(file)"
-                                            class="p-1.5 rounded-lg text-surface-300 hover:text-white hover:bg-surface-800 transition"
+                                            class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-surface-800 transition"
                                             title="Edit File"
                                         >
                                             <Edit3 class="w-3.5 h-3.5" />
                                         </button>
                                         <button
                                             @click="deleteFileEntry(file)"
-                                            class="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition"
+                                            class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
                                             title="Delete"
                                         >
                                             <Trash2 class="w-3.5 h-3.5" />
@@ -245,27 +245,27 @@ function formatBytes(bytes: number): string {
             <!-- Code Editor Modal -->
             <div
                 v-if="isEditorOpen"
-                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-950/80 backdrop-blur-sm"
+                class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 dark:bg-surface-950/80 backdrop-blur-sm"
             >
-                <div class="w-full max-w-4xl h-[80vh] flex flex-col rounded-2xl bg-surface-900 border border-surface-800 shadow-2xl overflow-hidden">
+                <div class="w-full max-w-4xl h-[80vh] flex flex-col rounded-2xl bg-white dark:bg-surface-900 border border-slate-200/90 dark:border-surface-800 shadow-2xl overflow-hidden">
                     <!-- Editor Titlebar -->
-                    <div class="h-12 bg-surface-950 border-b border-surface-800 px-4 flex items-center justify-between shrink-0">
-                        <div class="flex items-center gap-2 font-mono text-xs text-white">
-                            <Code class="w-4 h-4 text-brand-400" />
+                    <div class="h-12 bg-slate-100 dark:bg-surface-950 border-b border-slate-200 dark:border-surface-800 px-4 flex items-center justify-between shrink-0">
+                        <div class="flex items-center gap-2 font-mono text-xs text-slate-900 dark:text-white font-semibold">
+                            <Code class="w-4 h-4 text-brand-600 dark:text-brand-400" />
                             <span>{{ editingFileName }}</span>
                         </div>
                         <div class="flex items-center gap-2">
                             <button
                                 @click="saveFileContent"
                                 :disabled="fileEditForm.processing"
-                                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-lg shadow-emerald-600/20 disabled:opacity-50"
+                                class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-md shadow-emerald-600/20 disabled:opacity-50"
                             >
                                 <Save class="w-3.5 h-3.5" />
                                 <span>{{ fileEditForm.processing ? 'Saving...' : 'Save File' }}</span>
                             </button>
                             <button
                                 @click="isEditorOpen = false"
-                                class="p-1.5 rounded-xl text-surface-400 hover:text-white hover:bg-surface-800 transition"
+                                class="p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-surface-400 dark:hover:text-white dark:hover:bg-surface-800 transition"
                             >
                                 <X class="w-4 h-4" />
                             </button>
@@ -273,11 +273,11 @@ function formatBytes(bytes: number): string {
                     </div>
 
                     <!-- Editor Textarea -->
-                    <div class="flex-1 bg-surface-950 p-4 font-mono text-xs text-surface-200 overflow-auto">
+                    <div class="flex-1 bg-slate-950 p-4 font-mono text-xs text-slate-200 overflow-auto">
                         <textarea
                             v-model="fileEditForm.content"
                             spellcheck="false"
-                            class="w-full h-full bg-transparent border-0 resize-none font-mono text-xs text-emerald-300 focus:outline-none leading-relaxed selection:bg-brand-500 selection:text-white"
+                            class="w-full h-full bg-transparent border-0 resize-none font-mono text-xs text-emerald-400 focus:outline-none leading-relaxed selection:bg-brand-500 selection:text-white"
                         ></textarea>
                     </div>
                 </div>
