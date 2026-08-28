@@ -75,6 +75,26 @@ const searchQuery = ref<string>('');
 const historyStack = ref<string[]>([props.currentPath || '']);
 const historyIndex = ref<number>(0);
 
+// Sync with Props changes
+watch(() => props.files, (newFiles) => {
+    if (newFiles) fileList.value = newFiles;
+});
+watch(() => props.currentPath, (newPath) => {
+    if (newPath !== undefined) currentRelPath.value = newPath;
+});
+watch(() => props.basePath, (newBase) => {
+    if (newBase) currentBasePath.value = newBase;
+});
+watch(() => props.diskUsage, (newDisk) => {
+    if (newDisk) diskInfo.value = newDisk;
+});
+watch(() => props.showHidden, (newHidden) => {
+    if (newHidden !== undefined) isShowHidden.value = newHidden;
+});
+watch(() => props.selectedWebsite, (newSite) => {
+    if (newSite) activeWebsite.value = newSite;
+});
+
 // Selection State
 const selectedPaths = ref<Set<string>>(new Set());
 
@@ -1431,13 +1451,19 @@ function getFileIconColorClass(name: string, isDir: boolean) {
                                 </td>
                                 <td class="py-2.5 px-3 font-mono font-medium text-slate-900 dark:text-white">
                                     <div class="flex items-center gap-2.5">
-                                        <div :class="['p-1.5 rounded-lg shrink-0 border', getFileIconColorClass(file.name, file.is_dir)]">
+                                        <div
+                                            @click.stop="file.is_dir ? fetchDirectory(file.path) : null"
+                                            :class="['p-1.5 rounded-lg shrink-0 border transition-transform', file.is_dir ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : '', getFileIconColorClass(file.name, file.is_dir)]"
+                                            :title="file.is_dir ? 'Open folder' : ''"
+                                        >
                                             <component :is="getFileIcon(file.name, file.is_dir)" class="w-4 h-4" />
                                         </div>
                                         <button
                                             v-if="file.is_dir"
+                                            type="button"
                                             @click.stop="fetchDirectory(file.path)"
-                                            class="text-amber-700 dark:text-amber-300 hover:underline font-semibold text-left truncate max-w-xs sm:max-w-md"
+                                            class="text-amber-700 dark:text-amber-300 hover:underline font-semibold text-left truncate max-w-xs sm:max-w-md focus:outline-none"
+                                            title="Open folder"
                                         >
                                             {{ file.name }}
                                         </button>

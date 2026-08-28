@@ -32,11 +32,29 @@ class FileManagerController extends Controller
             abort(400, 'Invalid path: null byte detected.');
         }
 
-        $clean = realpath($basePath) ?: rtrim($basePath, '/');
+        $normalized = str_replace('\\', '/', $basePath);
+        $parts = array_filter(explode('/', $normalized), strlen(...));
+        $resolvedParts = [];
+        foreach ($parts as $part) {
+            if ($part === '.') continue;
+            if ($part === '..') {
+                array_pop($resolvedParts);
+            } else {
+                $resolvedParts[] = $part;
+            }
+        }
+        $clean = '/' . implode('/', $resolvedParts);
 
-        // Disallow traversing outside /var/www or /tmp
-        if (!str_starts_with($clean, '/var/www') && !str_starts_with($clean, '/tmp')) {
-            // Fallback to default
+        $allowedPrefixes = ['/var/www', '/private/var/www', '/tmp', '/private/tmp'];
+        $isAllowed = false;
+        foreach ($allowedPrefixes as $prefix) {
+            if ($clean === $prefix || str_starts_with($clean, $prefix . '/')) {
+                $isAllowed = true;
+                break;
+            }
+        }
+
+        if (!$isAllowed) {
             return $website && $website->document_root ? dirname($website->document_root) : '/var/www';
         }
 

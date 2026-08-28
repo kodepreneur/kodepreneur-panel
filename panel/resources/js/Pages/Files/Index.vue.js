@@ -16,6 +16,31 @@ const searchQuery = ref('');
 // History Stack for Back / Forward
 const historyStack = ref([props.currentPath || '']);
 const historyIndex = ref(0);
+// Sync with Props changes
+watch(() => props.files, (newFiles) => {
+    if (newFiles)
+        fileList.value = newFiles;
+});
+watch(() => props.currentPath, (newPath) => {
+    if (newPath !== undefined)
+        currentRelPath.value = newPath;
+});
+watch(() => props.basePath, (newBase) => {
+    if (newBase)
+        currentBasePath.value = newBase;
+});
+watch(() => props.diskUsage, (newDisk) => {
+    if (newDisk)
+        diskInfo.value = newDisk;
+});
+watch(() => props.showHidden, (newHidden) => {
+    if (newHidden !== undefined)
+        isShowHidden.value = newHidden;
+});
+watch(() => props.selectedWebsite, (newSite) => {
+    if (newSite)
+        activeWebsite.value = newSite;
+});
 // Selection State
 const selectedPaths = ref(new Set());
 // Context Menu State
@@ -1636,7 +1661,13 @@ else {
             ...{ class: "flex items-center gap-2.5" },
         });
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-            ...{ class: (['p-1.5 rounded-lg shrink-0 border', __VLS_ctx.getFileIconColorClass(file.name, file.is_dir)]) },
+            ...{ onClick: (...[$event]) => {
+                    if (!!(__VLS_ctx.filteredFiles.length === 0))
+                        return;
+                    file.is_dir ? __VLS_ctx.fetchDirectory(file.path) : null;
+                } },
+            ...{ class: (['p-1.5 rounded-lg shrink-0 border transition-transform', file.is_dir ? 'cursor-pointer hover:scale-105 hover:shadow-sm' : '', __VLS_ctx.getFileIconColorClass(file.name, file.is_dir)]) },
+            title: (file.is_dir ? 'Open folder' : ''),
         });
         const __VLS_92 = ((__VLS_ctx.getFileIcon(file.name, file.is_dir)));
         // @ts-ignore
@@ -1655,7 +1686,9 @@ else {
                             return;
                         __VLS_ctx.fetchDirectory(file.path);
                     } },
-                ...{ class: "text-amber-700 dark:text-amber-300 hover:underline font-semibold text-left truncate max-w-xs sm:max-w-md" },
+                type: "button",
+                ...{ class: "text-amber-700 dark:text-amber-300 hover:underline font-semibold text-left truncate max-w-xs sm:max-w-md focus:outline-none" },
+                title: "Open folder",
             });
             (file.name);
         }
@@ -3757,6 +3790,7 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['truncate']} */ ;
 /** @type {__VLS_StyleScopedClasses['max-w-xs']} */ ;
 /** @type {__VLS_StyleScopedClasses['sm:max-w-md']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:outline-none']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-slate-800']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
 /** @type {__VLS_StyleScopedClasses['truncate']} */ ;
