@@ -49,8 +49,10 @@ class DeploymentController extends Controller
         ];
 
         if ($website->php_version && $website->php_version !== 'none') {
+            $commands[] = 'mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache';
+            $commands[] = 'chmod -R 775 storage bootstrap/cache 2>/dev/null || true';
             $commands[] = 'if [ -f composer.json ]; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; fi';
-            $commands[] = 'if [ -f artisan ]; then php artisan migrate --force; php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi';
+            $commands[] = 'if [ -f artisan ]; then mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache; php artisan migrate --force; php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi';
         }
 
         $commands[] = 'if [ -f package.json ]; then if [ ! -d node_modules/vite ] && [ -f node_modules/.bin/vite ]; then rm -rf node_modules package-lock.json; fi; NODE_ENV=development npm install --include=dev --no-audit; npm run build; fi';
@@ -127,8 +129,10 @@ class DeploymentController extends Controller
 
         $commands = [
             "git checkout {$deployment->commit_hash}",
+            'mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache',
+            'chmod -R 775 storage bootstrap/cache 2>/dev/null || true',
             'if [ -f composer.json ]; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; fi',
-            'if [ -f artisan ]; then php artisan optimize:clear; php artisan config:cache; fi',
+            'if [ -f artisan ]; then mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache; php artisan optimize:clear; php artisan config:cache; fi',
         ];
 
         try {

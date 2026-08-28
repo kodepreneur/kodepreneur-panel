@@ -398,6 +398,9 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		}
 
 		var setupCommands []string
+		setupCommands = append(setupCommands, "mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache")
+		setupCommands = append(setupCommands, "chmod -R 775 storage bootstrap/cache 2>/dev/null || true")
+
 		if payload.LaravelSetup.RunComposer.Bool() {
 			setupCommands = append(setupCommands, "if [ -f composer.json ]; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; fi")
 		}
@@ -414,10 +417,8 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 			setupCommands = append(setupCommands, "if [ -f package.json ]; then if [ ! -d node_modules/vite ] && [ -f node_modules/.bin/vite ]; then rm -rf node_modules package-lock.json; fi; NODE_ENV=development npm install --include=dev --no-audit; npm run build; fi")
 		}
 		if payload.LaravelSetup.RunOptimize.Bool() {
-			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi")
+			setupCommands = append(setupCommands, "if [ -f artisan ]; then mkdir -p storage/framework/sessions storage/framework/views storage/framework/cache/data storage/logs bootstrap/cache; php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi")
 		}
-		setupCommands = append(setupCommands, "mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache")
-		setupCommands = append(setupCommands, "chmod -R 775 storage bootstrap/cache 2>/dev/null || true")
 
 		if len(setupCommands) > 0 {
 			res, err := r.gitRunner.Execute(git.DeploymentRequest{

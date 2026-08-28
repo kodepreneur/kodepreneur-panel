@@ -75,6 +75,15 @@ AGENT_MOCK=false
 EOF
 fi
 
+# Ensure storage & cache directories exist
+mkdir -p "${PANEL_DIR}/storage/framework/sessions" \
+         "${PANEL_DIR}/storage/framework/views" \
+         "${PANEL_DIR}/storage/framework/cache/data" \
+         "${PANEL_DIR}/storage/logs" \
+         "${PANEL_DIR}/bootstrap/cache" \
+         "${PANEL_DIR}/database"
+chmod -R 775 "${PANEL_DIR}/storage" "${PANEL_DIR}/bootstrap/cache" "${PANEL_DIR}/database"
+
 # Install PHP dependencies
 echo -e "${COLOR_GREEN}  - Installing Composer production dependencies...${COLOR_RESET}"
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction >/dev/null 2>&1

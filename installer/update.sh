@@ -85,6 +85,15 @@ if [ -d "${PANEL_DIR}" ]; then
         chmod +x /etc/kodepreneur/update.sh "${PANEL_DIR}/installer/update.sh"
     fi
 
+    # Ensure storage & cache directories exist
+    mkdir -p "${PANEL_DIR}/storage/framework/sessions" \
+             "${PANEL_DIR}/storage/framework/views" \
+             "${PANEL_DIR}/storage/framework/cache/data" \
+             "${PANEL_DIR}/storage/logs" \
+             "${PANEL_DIR}/bootstrap/cache" \
+             "${PANEL_DIR}/database"
+    chmod -R 775 "${PANEL_DIR}/storage" "${PANEL_DIR}/bootstrap/cache" "${PANEL_DIR}/database" 2>/dev/null || true
+
     # Update dependencies & run migrations
     echo -e "${COLOR_BLUE}  - Running Composer dependency installation...${COLOR_RESET}"
     composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction >/dev/null 2>&1 || true
