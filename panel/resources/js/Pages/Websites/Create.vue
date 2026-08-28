@@ -28,7 +28,7 @@ const form = useForm({
     git_repository: '',
     git_branch: 'main',
     zip_file: null as File | null,
-    auto_ssl: true,
+    auto_ssl: false,
     ssl_email: '',
 });
 
@@ -41,7 +41,7 @@ function updateDocRoot() {
     if (form.project_type === 'laravel') {
         form.document_root = `/var/www/${cleanDomain}/public`;
     } else {
-        form.document_root = `/var/www/${cleanDomain}/public`;
+        form.document_root = `/var/www/${cleanDomain}`;
     }
 }
 

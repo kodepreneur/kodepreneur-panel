@@ -12,7 +12,7 @@ const form = useForm({
     git_repository: '',
     git_branch: 'main',
     zip_file: null,
-    auto_ssl: true,
+    auto_ssl: false,
     ssl_email: '',
 });
 const isDragging = ref(false);
@@ -25,7 +25,7 @@ function updateDocRoot() {
         form.document_root = `/var/www/${cleanDomain}/public`;
     }
     else {
-        form.document_root = `/var/www/${cleanDomain}/public`;
+        form.document_root = `/var/www/${cleanDomain}`;
     }
 }
 function setProjectType(type) {

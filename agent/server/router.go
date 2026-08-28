@@ -330,12 +330,17 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		if payload.DocumentRoot == "" || payload.DocumentRoot == baseDir {
 			payload.DocumentRoot = filepath.Join(baseDir, "public")
 		}
-	} else if payload.DocumentRoot == "" {
-		payload.DocumentRoot = filepath.Join(baseDir, "public")
+	} else if payload.DocumentRoot == "" || payload.DocumentRoot == filepath.Join(baseDir, "public") {
+		publicDir := filepath.Join(realBaseDir, "public")
+		if _, err := os.Stat(publicDir); err == nil {
+			payload.DocumentRoot = filepath.Join(baseDir, "public")
+		} else {
+			payload.DocumentRoot = baseDir
+		}
 	}
 
 	// 3. Prepare Webroot directory and welcome index if empty
-	if err := r.phpManager.PrepareWebroot(payload.DocumentRoot, payload.SystemUser); err != nil {
+	if err := r.phpManager.PrepareWebroot(payload.DocumentRoot, realBaseDir, payload.SystemUser); err != nil {
 		respondError(w, http.StatusInternalServerError, "WEBROOT_CREATION_FAILED", err.Error())
 		return
 	}

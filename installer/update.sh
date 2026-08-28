@@ -116,6 +116,18 @@ if [ -d "${PANEL_DIR}" ]; then
                 sed -i 's/^max_input_time = .*/max_input_time = 600/' "${CONF}"
             fi
         done
+
+        # Configure graceful process_control_timeout (30s) in php-fpm.conf to prevent 502 Bad Gateway during pool reloads
+        FPM_MAIN_CONF="/etc/php/${VER}/fpm/php-fpm.conf"
+        if [ -f "${FPM_MAIN_CONF}" ]; then
+            if grep -q "^;process_control_timeout" "${FPM_MAIN_CONF}"; then
+                sed -i 's/^;process_control_timeout = .*/process_control_timeout = 30s/' "${FPM_MAIN_CONF}"
+            elif grep -q "^process_control_timeout" "${FPM_MAIN_CONF}"; then
+                sed -i 's/^process_control_timeout = .*/process_control_timeout = 30s/' "${FPM_MAIN_CONF}"
+            else
+                echo "process_control_timeout = 30s" >> "${FPM_MAIN_CONF}"
+            fi
+        fi
     done
     # Restart PHP-FPM runtimes to apply configuration & ensure sockets are alive
     echo -e "${COLOR_BLUE}  - Restarting PHP-FPM runtimes...${COLOR_RESET}"

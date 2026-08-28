@@ -102,16 +102,19 @@ func (m *Manager) ProvisionUser(username, domain string) error {
 	return nil
 }
 
-// PrepareWebroot creates document root and permissions.
-func (m *Manager) PrepareWebroot(docRoot, username string) error {
+// PrepareWebroot creates document root and permissions safely for the target domain.
+func (m *Manager) PrepareWebroot(docRoot, baseDir, username string) error {
 	if m.isDev || runtime.GOOS != "linux" {
 		if strings.HasPrefix(docRoot, "/var/www") {
 			mockRoot := filepath.Join(os.TempDir(), "kodepreneur", "www", strings.TrimPrefix(docRoot, "/var/www"))
 			_ = os.MkdirAll(mockRoot, 0755)
-			indexFile := filepath.Join(mockRoot, "index.php")
-			if _, err := os.Stat(indexFile); os.IsNotExist(err) {
-				samplePhp := "<?php echo 'Welcome to Kodepreneur';\n"
-				_ = os.WriteFile(indexFile, []byte(samplePhp), 0644)
+			indexPhp := filepath.Join(mockRoot, "index.php")
+			indexHtml := filepath.Join(mockRoot, "index.html")
+			if _, errPhp := os.Stat(indexPhp); os.IsNotExist(errPhp) {
+				if _, errHtml := os.Stat(indexHtml); os.IsNotExist(errHtml) {
+					samplePhp := "<?php echo 'Welcome to Kodepreneur';\n"
+					_ = os.WriteFile(indexPhp, []byte(samplePhp), 0644)
+				}
 			}
 			return nil
 		}
@@ -119,23 +122,34 @@ func (m *Manager) PrepareWebroot(docRoot, username string) error {
 		return nil
 	}
 
-	if err := os.MkdirAll(docRoot, 0750); err != nil {
+	if err := os.MkdirAll(docRoot, 0755); err != nil {
 		return fmt.Errorf("failed to create document root %s: %w", docRoot, err)
 	}
 
-	indexFile := filepath.Join(docRoot, "index.php")
-	if _, err := os.Stat(indexFile); os.IsNotExist(err) {
-		samplePhp := `<?php
+	// Only create default sample index if NO index file exists in docRoot
+	indexPhp := filepath.Join(docRoot, "index.php")
+	indexHtml := filepath.Join(docRoot, "index.html")
+	if _, errPhp := os.Stat(indexPhp); os.IsNotExist(errPhp) {
+		if _, errHtml := os.Stat(indexHtml); os.IsNotExist(errHtml) {
+			samplePhp := `<?php
 echo "<h1>Welcome to " . htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'Kodepreneur') . "</h1>";
 echo "<p>PHP Version: " . PHP_VERSION . "</p>";
 echo "<p>Server Time: " . date('Y-m-d H:i:s') . " UTC</p>";
 `
-		_ = os.WriteFile(indexFile, []byte(samplePhp), 0644)
+			_ = os.WriteFile(indexPhp, []byte(samplePhp), 0644)
+		}
 	}
 
-	// Chown to user:www-data
-	cmd := exec.Command("chown", "-R", fmt.Sprintf("%s:www-data", username), filepath.Dir(docRoot))
-	_ = cmd.Run()
+	// Safe chown: Only chown target domain directory (/var/www/{domain}), NEVER /var/www or /
+	targetDir := baseDir
+	if targetDir == "" {
+		targetDir = docRoot
+	}
+	cleanTarget := filepath.Clean(targetDir)
+	if cleanTarget != "/var/www" && cleanTarget != "/" && cleanTarget != "." && strings.HasPrefix(cleanTarget, "/var/www/") {
+		cmd := exec.Command("chown", "-R", fmt.Sprintf("%s:www-data", username), cleanTarget)
+		_ = cmd.Run()
+	}
 
 	return nil
 }
@@ -188,7 +202,7 @@ func (m *Manager) CreatePool(cfg PoolConfig) (string, error) {
 		return "", fmt.Errorf("php%s-fpm pool syntax validation failed: %w", cfg.PhpVersion, err)
 	}
 
-	// Reload PHP-FPM daemon
+	// Reload PHP-FPM daemon gracefully
 	if err := m.ReloadFpm(cfg.PhpVersion); err != nil {
 		_ = os.Remove(poolPath)
 		_ = m.ReloadFpm(cfg.PhpVersion)
@@ -237,20 +251,20 @@ func (m *Manager) TestConfig(phpVersion string) error {
 	return nil
 }
 
-// ReloadFpm sends reload-or-restart signal to php-fpm systemd unit.
+// ReloadFpm sends reload signal to php-fpm systemd unit.
 func (m *Manager) ReloadFpm(phpVersion string) error {
 	if m.isDev || runtime.GOOS != "linux" {
 		return nil
 	}
 
 	serviceName := fmt.Sprintf("php%s-fpm", phpVersion)
-	cmd := exec.Command("systemctl", "reload-or-restart", serviceName)
+	cmd := exec.Command("systemctl", "reload", serviceName)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		// Fallback to explicit restart
-		cmdRestart := exec.Command("systemctl", "restart", serviceName)
-		outRestart, errRestart := cmdRestart.CombinedOutput()
-		if errRestart != nil {
-			return fmt.Errorf("%s: %s (fallback from reload: %s)", errRestart.Error(), strings.TrimSpace(string(outRestart)), strings.TrimSpace(string(out)))
+		// Fallback to reload-or-restart
+		cmdFallback := exec.Command("systemctl", "reload-or-restart", serviceName)
+		outFallback, errFallback := cmdFallback.CombinedOutput()
+		if errFallback != nil {
+			return fmt.Errorf("%s: %s (reload fallback: %s)", errFallback.Error(), strings.TrimSpace(string(outFallback)), strings.TrimSpace(string(out)))
 		}
 	}
 	return nil

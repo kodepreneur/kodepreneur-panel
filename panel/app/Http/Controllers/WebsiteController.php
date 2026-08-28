@@ -69,10 +69,15 @@ class WebsiteController extends Controller
         $systemUser = 'kp_' . Str::slug(explode('.', $domain)[0], '_');
         $aliases = $validated['aliases'] ?? [];
 
-        // Laravel root route auto-direction to /public
-        $docRoot = !empty($validated['document_root']) ? $validated['document_root'] : "/var/www/{$domain}/public";
-        if ($projectType === 'laravel' && ($docRoot === "/var/www/{$domain}" || empty($validated['document_root']))) {
-            $docRoot = "/var/www/{$domain}/public";
+        // Auto document root determination
+        if (empty($validated['document_root'])) {
+            if ($projectType === 'laravel') {
+                $docRoot = "/var/www/{$domain}/public";
+            } else {
+                $docRoot = "/var/www/{$domain}";
+            }
+        } else {
+            $docRoot = $validated['document_root'];
         }
 
         $fullZipPath = null;

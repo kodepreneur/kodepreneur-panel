@@ -165,4 +165,34 @@ func TestWebsiteDeploymentSources(t *testing.T) {
 	if gitResp.Data.DocumentRoot != "/var/www/git-site.com/public" {
 		t.Errorf("Expected document_root to be /var/www/git-site.com/public, got %s", gitResp.Data.DocumentRoot)
 	}
+
+	// 2. Create with generic PHP Zip deployment source (no public dir)
+	zipPayload := []byte(`{
+		"domain": "zip-site.com",
+		"php_version": "8.3",
+		"deployment_source": "zip",
+		"project_type": "generic_php"
+	}`)
+	req = httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(zipPayload))
+	signRequest(req, zipPayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for zip website creation, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var zipResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			DocumentRoot string `json:"document_root"`
+			IsLaravel    bool   `json:"is_laravel"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&zipResp); err != nil {
+		t.Fatalf("Failed to decode zip response: %v", err)
+	}
+	if zipResp.Data.DocumentRoot != "/var/www/zip-site.com" {
+		t.Errorf("Expected document_root to be /var/www/zip-site.com, got %s", zipResp.Data.DocumentRoot)
+	}
 }

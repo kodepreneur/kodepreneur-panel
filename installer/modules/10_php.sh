@@ -76,6 +76,18 @@ for VER in 8.3 8.4; do
             sed -i 's/^max_input_time = .*/max_input_time = 600/' "${CONF}"
         fi
     done
+
+    # Configure graceful process_control_timeout (30s) in php-fpm.conf to prevent 502 Bad Gateway during pool reloads
+    FPM_MAIN_CONF="/etc/php/${VER}/fpm/php-fpm.conf"
+    if [ -f "${FPM_MAIN_CONF}" ]; then
+        if grep -q "^;process_control_timeout" "${FPM_MAIN_CONF}"; then
+            sed -i 's/^;process_control_timeout = .*/process_control_timeout = 30s/' "${FPM_MAIN_CONF}"
+        elif grep -q "^process_control_timeout" "${FPM_MAIN_CONF}"; then
+            sed -i 's/^process_control_timeout = .*/process_control_timeout = 30s/' "${FPM_MAIN_CONF}"
+        else
+            echo "process_control_timeout = 30s" >> "${FPM_MAIN_CONF}"
+        fi
+    fi
 done
 
 # Ensure FPM services are running
