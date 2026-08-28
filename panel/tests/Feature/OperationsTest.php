@@ -197,30 +197,136 @@ class OperationsTest extends TestCase
             'status' => 'active',
         ]);
 
-        // 1. Browse files
+        // 1. Initial page render
         $browseRes = $this->actingAs($user)->get("/files?website_id={$website->id}");
         $browseRes->assertStatus(200);
 
-        // 2. Read file
+        // 2. AJAX Browse
+        $ajaxBrowse = $this->actingAs($user)->postJson('/files/browse', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => '',
+            'show_hidden' => true,
+        ]);
+        $ajaxBrowse->assertStatus(200);
+        $ajaxBrowse->assertJsonStructure(['success', 'files', 'disk_usage']);
+
+        // 3. Read file
         $readRes = $this->actingAs($user)->get("/files/read?base_path=/var/www/filetest.com&relative_path=.env");
         $readRes->assertStatus(200);
         $readRes->assertJsonStructure(['success', 'content']);
 
-        // 3. Write file
-        $writeRes = $this->actingAs($user)->post('/files/write', [
+        // 4. Write file
+        $writeRes = $this->actingAs($user)->postJson('/files/write', [
             'base_path' => '/var/www/filetest.com',
             'relative_path' => '.env',
             'content' => 'APP_NAME=Testing',
-            'website_id' => $website->id,
         ]);
-        $writeRes->assertRedirect();
+        $writeRes->assertStatus(200);
 
-        // 4. Delete file
-        $delRes = $this->actingAs($user)->post('/files/delete', [
+        // 5. Create File & Folder
+        $createFileRes = $this->actingAs($user)->postJson('/files/create-file', [
             'base_path' => '/var/www/filetest.com',
-            'relative_path' => 'scratch.log',
-            'website_id' => $website->id,
+            'relative_path' => 'new-file.txt',
         ]);
-        $delRes->assertRedirect();
+        $createFileRes->assertStatus(200);
+
+        $createFolderRes = $this->actingAs($user)->postJson('/files/create-folder', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'new-folder',
+        ]);
+        $createFolderRes->assertStatus(200);
+
+        // 6. Rename
+        $renameRes = $this->actingAs($user)->postJson('/files/rename', [
+            'base_path' => '/var/www/filetest.com',
+            'old_path' => 'new-file.txt',
+            'new_path' => 'renamed-file.txt',
+        ]);
+        $renameRes->assertStatus(200);
+
+        // 7. Copy & Move
+        $copyRes = $this->actingAs($user)->postJson('/files/copy', [
+            'base_path' => '/var/www/filetest.com',
+            'src_path' => 'renamed-file.txt',
+            'dest_path' => 'new-folder',
+        ]);
+        $copyRes->assertStatus(200);
+
+        $moveRes = $this->actingAs($user)->postJson('/files/move', [
+            'base_path' => '/var/www/filetest.com',
+            'src_path' => 'renamed-file.txt',
+            'dest_path' => 'new-folder/moved.txt',
+        ]);
+        $moveRes->assertStatus(200);
+
+        // 8. Chmod & Chown & Stat
+        $chmodRes = $this->actingAs($user)->postJson('/files/chmod', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'new-folder',
+            'mode' => '0755',
+            'recursive' => false,
+        ]);
+        $chmodRes->assertStatus(200);
+
+        $chownRes = $this->actingAs($user)->postJson('/files/chown', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'new-folder',
+            'uid' => 33,
+            'gid' => 33,
+            'recursive' => false,
+        ]);
+        $chownRes->assertStatus(200);
+
+        $statRes = $this->actingAs($user)->postJson('/files/stat', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'new-folder',
+        ]);
+        $statRes->assertStatus(200);
+        $statRes->assertJsonStructure(['success', 'data']);
+
+        // 9. Compress & Extract
+        $compressRes = $this->actingAs($user)->postJson('/files/compress', [
+            'base_path' => '/var/www/filetest.com',
+            'sources' => ['new-folder'],
+            'dest_path' => 'archive.zip',
+            'format' => 'zip',
+        ]);
+        $compressRes->assertStatus(200);
+
+        $extractRes = $this->actingAs($user)->postJson('/files/extract', [
+            'base_path' => '/var/www/filetest.com',
+            'archive_path' => 'archive.zip',
+            'dest_path' => 'extracted',
+        ]);
+        $extractRes->assertStatus(200);
+
+        // 10. Search
+        $searchRes = $this->actingAs($user)->postJson('/files/search', [
+            'base_path' => '/var/www/filetest.com',
+            'query' => 'index',
+        ]);
+        $searchRes->assertStatus(200);
+        $searchRes->assertJsonStructure(['success', 'data']);
+
+        // 11. Delete
+        $delRes = $this->actingAs($user)->postJson('/files/delete', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'archive.zip',
+        ]);
+        $delRes->assertStatus(200);
+
+        // 12. Verify Activity Logs were recorded
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'file.write',
+            'resource_type' => 'file',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'file.create',
+            'resource_type' => 'file',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'file.delete',
+            'resource_type' => 'file',
+        ]);
     }
 }

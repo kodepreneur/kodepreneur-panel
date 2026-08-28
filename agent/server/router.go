@@ -102,7 +102,20 @@ func (r *Router) registerRoutes() {
 	r.mux.Handle("/api/v1/files/browse", http.HandlerFunc(r.handleFileBrowse))
 	r.mux.Handle("/api/v1/files/read", http.HandlerFunc(r.handleFileRead))
 	r.mux.Handle("/api/v1/files/write", http.HandlerFunc(r.handleFileWrite))
+	r.mux.Handle("/api/v1/files/create", http.HandlerFunc(r.handleFileCreate))
+	r.mux.Handle("/api/v1/files/mkdir", http.HandlerFunc(r.handleFileMkdir))
 	r.mux.Handle("/api/v1/files/delete", http.HandlerFunc(r.handleFileDelete))
+	r.mux.Handle("/api/v1/files/rename", http.HandlerFunc(r.handleFileRename))
+	r.mux.Handle("/api/v1/files/copy", http.HandlerFunc(r.handleFileCopy))
+	r.mux.Handle("/api/v1/files/move", http.HandlerFunc(r.handleFileMove))
+	r.mux.Handle("/api/v1/files/chmod", http.HandlerFunc(r.handleFileChmod))
+	r.mux.Handle("/api/v1/files/chown", http.HandlerFunc(r.handleFileChown))
+	r.mux.Handle("/api/v1/files/stat", http.HandlerFunc(r.handleFileStat))
+	r.mux.Handle("/api/v1/files/compress", http.HandlerFunc(r.handleFileCompress))
+	r.mux.Handle("/api/v1/files/extract", http.HandlerFunc(r.handleFileExtract))
+	r.mux.Handle("/api/v1/files/search", http.HandlerFunc(r.handleFileSearch))
+	r.mux.Handle("/api/v1/files/disk", http.HandlerFunc(r.handleFileDiskUsage))
+	r.mux.Handle("/api/v1/files/download", http.HandlerFunc(r.handleFileDownload))
 }
 
 func (r *Router) Handler() http.Handler {
@@ -895,13 +908,14 @@ func (r *Router) handleFileBrowse(w http.ResponseWriter, req *http.Request) {
 	var payload struct {
 		BasePath     string `json:"base_path"`
 		RelativePath string `json:"relative_path"`
+		ShowHidden   bool   `json:"show_hidden"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
 		return
 	}
 
-	entries, err := r.fileManager.Browse(payload.BasePath, payload.RelativePath)
+	entries, err := r.fileManager.Browse(payload.BasePath, payload.RelativePath, payload.ShowHidden)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "BROWSE_FAILED", err.Error())
 		return
@@ -922,13 +936,14 @@ func (r *Router) handleFileRead(w http.ResponseWriter, req *http.Request) {
 	var payload struct {
 		BasePath     string `json:"base_path"`
 		RelativePath string `json:"relative_path"`
+		MaxBytes     int64  `json:"max_bytes"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
 		return
 	}
 
-	content, err := r.fileManager.ReadFile(payload.BasePath, payload.RelativePath)
+	content, err := r.fileManager.ReadFile(payload.BasePath, payload.RelativePath, payload.MaxBytes)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "READ_FAILED", err.Error())
 		return
@@ -967,6 +982,58 @@ func (r *Router) handleFileWrite(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (r *Router) handleFileCreate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath     string `json:"base_path"`
+		RelativePath string `json:"relative_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.CreateFile(payload.BasePath, payload.RelativePath); err != nil {
+		respondError(w, http.StatusBadRequest, "CREATE_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "File created successfully",
+	})
+}
+
+func (r *Router) handleFileMkdir(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath     string `json:"base_path"`
+		RelativePath string `json:"relative_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.CreateDirectory(payload.BasePath, payload.RelativePath); err != nil {
+		respondError(w, http.StatusBadRequest, "MKDIR_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Directory created successfully",
+	})
+}
+
 func (r *Router) handleFileDelete(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
@@ -991,6 +1058,308 @@ func (r *Router) handleFileDelete(w http.ResponseWriter, req *http.Request) {
 		"success": true,
 		"message": "Entry deleted successfully",
 	})
+}
+
+func (r *Router) handleFileRename(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string `json:"base_path"`
+		OldPath  string `json:"old_path"`
+		NewPath  string `json:"new_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Rename(payload.BasePath, payload.OldPath, payload.NewPath); err != nil {
+		respondError(w, http.StatusBadRequest, "RENAME_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Renamed successfully",
+	})
+}
+
+func (r *Router) handleFileCopy(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string `json:"base_path"`
+		SrcPath  string `json:"src_path"`
+		DestPath string `json:"dest_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Copy(payload.BasePath, payload.SrcPath, payload.DestPath); err != nil {
+		respondError(w, http.StatusBadRequest, "COPY_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Copied successfully",
+	})
+}
+
+func (r *Router) handleFileMove(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string `json:"base_path"`
+		SrcPath  string `json:"src_path"`
+		DestPath string `json:"dest_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Move(payload.BasePath, payload.SrcPath, payload.DestPath); err != nil {
+		respondError(w, http.StatusBadRequest, "MOVE_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Moved successfully",
+	})
+}
+
+func (r *Router) handleFileChmod(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath     string `json:"base_path"`
+		RelativePath string `json:"relative_path"`
+		Mode         string `json:"mode"`
+		Recursive    bool   `json:"recursive"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Chmod(payload.BasePath, payload.RelativePath, payload.Mode, payload.Recursive); err != nil {
+		respondError(w, http.StatusBadRequest, "CHMOD_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Permissions updated successfully",
+	})
+}
+
+func (r *Router) handleFileChown(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath     string `json:"base_path"`
+		RelativePath string `json:"relative_path"`
+		UID          int    `json:"uid"`
+		GID          int    `json:"gid"`
+		Recursive    bool   `json:"recursive"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Chown(payload.BasePath, payload.RelativePath, payload.UID, payload.GID, payload.Recursive); err != nil {
+		respondError(w, http.StatusBadRequest, "CHOWN_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Ownership updated successfully",
+	})
+}
+
+func (r *Router) handleFileStat(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath     string `json:"base_path"`
+		RelativePath string `json:"relative_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	details, err := r.fileManager.Stat(payload.BasePath, payload.RelativePath)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "STAT_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data":    details,
+	})
+}
+
+func (r *Router) handleFileCompress(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string   `json:"base_path"`
+		Sources  []string `json:"sources"`
+		DestPath string   `json:"dest_path"`
+		Format   string   `json:"format"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Compress(payload.BasePath, payload.Sources, payload.DestPath, payload.Format); err != nil {
+		respondError(w, http.StatusBadRequest, "COMPRESS_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Archive created successfully",
+	})
+}
+
+func (r *Router) handleFileExtract(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath    string `json:"base_path"`
+		ArchivePath string `json:"archive_path"`
+		DestPath    string `json:"dest_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if err := r.fileManager.Extract(payload.BasePath, payload.ArchivePath, payload.DestPath); err != nil {
+		respondError(w, http.StatusBadRequest, "EXTRACT_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"message": "Archive extracted successfully",
+	})
+}
+
+func (r *Router) handleFileSearch(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath   string `json:"base_path"`
+		Query      string `json:"query"`
+		MaxResults int    `json:"max_results"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	results, err := r.fileManager.Search(payload.BasePath, payload.Query, payload.MaxResults)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "SEARCH_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data":    results,
+	})
+}
+
+func (r *Router) handleFileDiskUsage(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string `json:"base_path"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	usage, err := r.fileManager.GetDiskUsage(payload.BasePath)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "DISK_USAGE_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data":    usage,
+	})
+}
+
+func (r *Router) handleFileDownload(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		BasePath string   `json:"base_path"`
+		Paths    []string `json:"paths"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		return
+	}
+
+	if len(payload.Paths) == 0 {
+		respondError(w, http.StatusBadRequest, "EMPTY_PATHS", "No paths provided for download")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"download.zip\"")
+	if err := r.fileManager.StreamArchive(payload.BasePath, payload.Paths, w); err != nil {
+		// Log error if header was already written
+		return
+	}
 }
 
 func respondJSON(w http.ResponseWriter, status int, data any) {

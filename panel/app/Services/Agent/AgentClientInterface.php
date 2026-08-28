@@ -122,12 +122,12 @@ interface AgentClientInterface
     /**
      * Browse sandboxed directory.
      */
-    public function browseFiles(string $basePath, string $relativePath = ''): array;
+    public function browseFiles(string $basePath, string $relativePath = '', bool $showHidden = false): array;
 
     /**
      * Read file content safely.
      */
-    public function readFile(string $basePath, string $relativePath): string;
+    public function readFile(string $basePath, string $relativePath, int $maxBytes = 5242880): string;
 
     /**
      * Write file content safely.
@@ -135,9 +135,69 @@ interface AgentClientInterface
     public function writeFile(string $basePath, string $relativePath, string $content): array;
 
     /**
+     * Create an empty file.
+     */
+    public function createFile(string $basePath, string $relativePath): array;
+
+    /**
+     * Create a directory.
+     */
+    public function createDirectory(string $basePath, string $relativePath): array;
+
+    /**
      * Delete file or folder safely.
      */
     public function deleteFile(string $basePath, string $relativePath): array;
+
+    /**
+     * Rename file or directory safely.
+     */
+    public function renameFile(string $basePath, string $oldPath, string $newPath): array;
+
+    /**
+     * Copy file or folder.
+     */
+    public function copyFile(string $basePath, string $srcPath, string $destPath): array;
+
+    /**
+     * Move file or folder.
+     */
+    public function moveFile(string $basePath, string $srcPath, string $destPath): array;
+
+    /**
+     * Modify permissions (chmod).
+     */
+    public function chmodFile(string $basePath, string $relativePath, string $mode, bool $recursive = false): array;
+
+    /**
+     * Modify owner and group (chown).
+     */
+    public function chownFile(string $basePath, string $relativePath, int $uid, int $gid, bool $recursive = false): array;
+
+    /**
+     * Retrieve detailed stat metadata.
+     */
+    public function statFile(string $basePath, string $relativePath): array;
+
+    /**
+     * Create archive (.zip or .tar.gz).
+     */
+    public function compressFiles(string $basePath, array $sources, string $destPath, string $format = 'zip'): array;
+
+    /**
+     * Extract archive into destination.
+     */
+    public function extractArchive(string $basePath, string $archivePath, string $destPath): array;
+
+    /**
+     * Search files within base directory.
+     */
+    public function searchFiles(string $basePath, string $query, int $maxResults = 100): array;
+
+    /**
+     * Get disk usage for base directory.
+     */
+    public function getDiskUsage(string $basePath): array;
 
     /**
      * Trigger root-level automated system update pipeline.

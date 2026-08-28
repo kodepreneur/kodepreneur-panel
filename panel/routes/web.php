@@ -70,9 +70,24 @@ Route::middleware('auth')->group(function () {
 
     // File Manager (Phase 6)
     Route::get('/files', [FileManagerController::class, 'index'])->name('files.index');
+    Route::post('/files/browse', [FileManagerController::class, 'browse'])->name('files.browse');
     Route::get('/files/read', [FileManagerController::class, 'read'])->name('files.read');
     Route::post('/files/write', [FileManagerController::class, 'write'])->name('files.write');
+    Route::post('/files/create-file', [FileManagerController::class, 'createFile'])->name('files.create-file');
+    Route::post('/files/create-folder', [FileManagerController::class, 'createFolder'])->name('files.create-folder');
     Route::post('/files/delete', [FileManagerController::class, 'delete'])->name('files.delete');
+    Route::post('/files/rename', [FileManagerController::class, 'rename'])->name('files.rename');
+    Route::post('/files/copy', [FileManagerController::class, 'copy'])->name('files.copy');
+    Route::post('/files/move', [FileManagerController::class, 'move'])->name('files.move');
+    Route::post('/files/chmod', [FileManagerController::class, 'chmod'])->name('files.chmod');
+    Route::post('/files/chown', [FileManagerController::class, 'chown'])->name('files.chown');
+    Route::post('/files/stat', [FileManagerController::class, 'stat'])->name('files.stat');
+    Route::post('/files/compress', [FileManagerController::class, 'compress'])->name('files.compress');
+    Route::post('/files/extract', [FileManagerController::class, 'extract'])->name('files.extract');
+    Route::post('/files/search', [FileManagerController::class, 'search'])->name('files.search');
+    Route::post('/files/upload', [FileManagerController::class, 'upload'])->name('files.upload');
+    Route::get('/files/download', [FileManagerController::class, 'download'])->name('files.download');
+    Route::get('/files/preview', [FileManagerController::class, 'preview'])->name('files.preview');
 
     // Services
     Route::get('/services', [ServiceController::class, 'index'])->name('services.index');

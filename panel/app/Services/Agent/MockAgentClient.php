@@ -260,24 +260,50 @@ class MockAgentClient implements AgentClientInterface
         ];
     }
 
-    public function browseFiles(string $basePath, string $relativePath = ''): array
+    public function browseFiles(string $basePath, string $relativePath = '', bool $showHidden = false): array
     {
-        return [
+        $files = [
             [
                 'name' => 'public',
                 'path' => 'public',
                 'is_dir' => true,
                 'size_bytes' => 4096,
                 'permissions' => 'drwxr-xr-x',
+                'mode_octal' => '0755',
+                'owner' => 'www-data',
+                'group' => 'www-data',
                 'modified_at' => now()->toISOString(),
+                'item_count' => 3,
+                'mime_type' => 'inode/directory',
+                'extension' => '',
             ],
             [
-                'name' => '.env',
-                'path' => '.env',
+                'name' => 'storage',
+                'path' => 'storage',
+                'is_dir' => true,
+                'size_bytes' => 4096,
+                'permissions' => 'drwxrwxr-x',
+                'mode_octal' => '0775',
+                'owner' => 'www-data',
+                'group' => 'www-data',
+                'modified_at' => now()->subDay()->toISOString(),
+                'item_count' => 5,
+                'mime_type' => 'inode/directory',
+                'extension' => '',
+            ],
+            [
+                'name' => 'index.php',
+                'path' => 'index.php',
                 'is_dir' => false,
-                'size_bytes' => 1240,
+                'size_bytes' => 2450,
                 'permissions' => '-rw-r--r--',
+                'mode_octal' => '0644',
+                'owner' => 'www-data',
+                'group' => 'www-data',
                 'modified_at' => now()->toISOString(),
+                'item_count' => 0,
+                'mime_type' => 'application/x-httpd-php',
+                'extension' => 'php',
             ],
             [
                 'name' => 'composer.json',
@@ -285,12 +311,51 @@ class MockAgentClient implements AgentClientInterface
                 'is_dir' => false,
                 'size_bytes' => 3120,
                 'permissions' => '-rw-r--r--',
+                'mode_octal' => '0644',
+                'owner' => 'www-data',
+                'group' => 'www-data',
                 'modified_at' => now()->toISOString(),
+                'item_count' => 0,
+                'mime_type' => 'application/json',
+                'extension' => 'json',
             ],
         ];
+
+        if ($showHidden) {
+            $files[] = [
+                'name' => '.env',
+                'path' => '.env',
+                'is_dir' => false,
+                'size_bytes' => 1240,
+                'permissions' => '-rw-r--r--',
+                'mode_octal' => '0644',
+                'owner' => 'www-data',
+                'group' => 'www-data',
+                'modified_at' => now()->toISOString(),
+                'item_count' => 0,
+                'mime_type' => 'text/plain',
+                'extension' => 'env',
+            ];
+            $files[] = [
+                'name' => '.gitignore',
+                'path' => '.gitignore',
+                'is_dir' => false,
+                'size_bytes' => 240,
+                'permissions' => '-rw-r--r--',
+                'mode_octal' => '0644',
+                'owner' => 'www-data',
+                'group' => 'www-data',
+                'modified_at' => now()->toISOString(),
+                'item_count' => 0,
+                'mime_type' => 'text/plain',
+                'extension' => 'gitignore',
+            ];
+        }
+
+        return $files;
     }
 
-    public function readFile(string $basePath, string $relativePath): string
+    public function readFile(string $basePath, string $relativePath, int $maxBytes = 5242880): string
     {
         return "APP_NAME=KodepreneurApp\nAPP_ENV=production\nAPP_DEBUG=false\nAPP_URL=https://example.com\n";
     }
@@ -303,11 +368,135 @@ class MockAgentClient implements AgentClientInterface
         ];
     }
 
+    public function createFile(string $basePath, string $relativePath): array
+    {
+        return [
+            'success' => true,
+            'message' => "File created successfully",
+        ];
+    }
+
+    public function createDirectory(string $basePath, string $relativePath): array
+    {
+        return [
+            'success' => true,
+            'message' => "Directory created successfully",
+        ];
+    }
+
     public function deleteFile(string $basePath, string $relativePath): array
     {
         return [
             'success' => true,
             'message' => "Entry deleted successfully",
+        ];
+    }
+
+    public function renameFile(string $basePath, string $oldPath, string $newPath): array
+    {
+        return [
+            'success' => true,
+            'message' => "Renamed successfully",
+        ];
+    }
+
+    public function copyFile(string $basePath, string $srcPath, string $destPath): array
+    {
+        return [
+            'success' => true,
+            'message' => "Copied successfully",
+        ];
+    }
+
+    public function moveFile(string $basePath, string $srcPath, string $destPath): array
+    {
+        return [
+            'success' => true,
+            'message' => "Moved successfully",
+        ];
+    }
+
+    public function chmodFile(string $basePath, string $relativePath, string $mode, bool $recursive = false): array
+    {
+        return [
+            'success' => true,
+            'message' => "Permissions updated successfully",
+        ];
+    }
+
+    public function chownFile(string $basePath, string $relativePath, int $uid, int $gid, bool $recursive = false): array
+    {
+        return [
+            'success' => true,
+            'message' => "Ownership updated successfully",
+        ];
+    }
+
+    public function statFile(string $basePath, string $relativePath): array
+    {
+        return [
+            'name' => basename($relativePath),
+            'path' => $relativePath,
+            'is_dir' => false,
+            'size_bytes' => 1240,
+            'permissions' => '-rw-r--r--',
+            'mode_octal' => '0644',
+            'owner' => 'www-data',
+            'group' => 'www-data',
+            'uid' => 33,
+            'gid' => 33,
+            'modified_at' => now()->toISOString(),
+            'created_at' => now()->toISOString(),
+            'mime_type' => 'text/plain',
+            'extension' => 'txt',
+            'item_count' => 0,
+        ];
+    }
+
+    public function compressFiles(string $basePath, array $sources, string $destPath, string $format = 'zip'): array
+    {
+        return [
+            'success' => true,
+            'message' => "Archive created successfully",
+        ];
+    }
+
+    public function extractArchive(string $basePath, string $archivePath, string $destPath): array
+    {
+        return [
+            'success' => true,
+            'message' => "Archive extracted successfully",
+        ];
+    }
+
+    public function searchFiles(string $basePath, string $query, int $maxResults = 100): array
+    {
+        return [
+            [
+                'name' => 'index.php',
+                'path' => 'public/index.php',
+                'is_dir' => false,
+                'size_bytes' => 2450,
+                'permissions' => '-rw-r--r--',
+                'mode_octal' => '0644',
+                'owner' => 'www-data',
+                'group' => 'www-data',
+                'modified_at' => now()->toISOString(),
+                'mime_type' => 'application/x-httpd-php',
+                'extension' => 'php',
+            ]
+        ];
+    }
+
+    public function getDiskUsage(string $basePath): array
+    {
+        return [
+            'path' => $basePath,
+            'total_bytes' => 50000000000,
+            'used_bytes' => 12000000000,
+            'free_bytes' => 38000000000,
+            'usage_percent' => 24.0,
+            'path_size' => 1800000000,
         ];
     }
 

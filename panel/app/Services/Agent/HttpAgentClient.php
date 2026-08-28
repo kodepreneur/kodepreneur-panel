@@ -153,20 +153,22 @@ class HttpAgentClient implements AgentClientInterface
         return $res ?? [];
     }
 
-    public function browseFiles(string $basePath, string $relativePath = ''): array
+    public function browseFiles(string $basePath, string $relativePath = '', bool $showHidden = false): array
     {
         $res = $this->request('POST', '/api/v1/files/browse', [
             'base_path' => $basePath,
             'relative_path' => $relativePath,
+            'show_hidden' => $showHidden,
         ]);
         return $res['data'] ?? [];
     }
 
-    public function readFile(string $basePath, string $relativePath): string
+    public function readFile(string $basePath, string $relativePath, int $maxBytes = 5242880): string
     {
         $res = $this->request('POST', '/api/v1/files/read', [
             'base_path' => $basePath,
             'relative_path' => $relativePath,
+            'max_bytes' => $maxBytes,
         ]);
         return $res['content'] ?? '';
     }
@@ -181,6 +183,24 @@ class HttpAgentClient implements AgentClientInterface
         return $res ?? [];
     }
 
+    public function createFile(string $basePath, string $relativePath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/create', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+        ]);
+        return $res ?? [];
+    }
+
+    public function createDirectory(string $basePath, string $relativePath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/mkdir', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+        ]);
+        return $res ?? [];
+    }
+
     public function deleteFile(string $basePath, string $relativePath): array
     {
         $res = $this->request('POST', '/api/v1/files/delete', [
@@ -188,6 +208,107 @@ class HttpAgentClient implements AgentClientInterface
             'relative_path' => $relativePath,
         ]);
         return $res ?? [];
+    }
+
+    public function renameFile(string $basePath, string $oldPath, string $newPath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/rename', [
+            'base_path' => $basePath,
+            'old_path' => $oldPath,
+            'new_path' => $newPath,
+        ]);
+        return $res ?? [];
+    }
+
+    public function copyFile(string $basePath, string $srcPath, string $destPath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/copy', [
+            'base_path' => $basePath,
+            'src_path' => $srcPath,
+            'dest_path' => $destPath,
+        ]);
+        return $res ?? [];
+    }
+
+    public function moveFile(string $basePath, string $srcPath, string $destPath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/move', [
+            'base_path' => $basePath,
+            'src_path' => $srcPath,
+            'dest_path' => $destPath,
+        ]);
+        return $res ?? [];
+    }
+
+    public function chmodFile(string $basePath, string $relativePath, string $mode, bool $recursive = false): array
+    {
+        $res = $this->request('POST', '/api/v1/files/chmod', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+            'mode' => $mode,
+            'recursive' => $recursive,
+        ]);
+        return $res ?? [];
+    }
+
+    public function chownFile(string $basePath, string $relativePath, int $uid, int $gid, bool $recursive = false): array
+    {
+        $res = $this->request('POST', '/api/v1/files/chown', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+            'uid' => $uid,
+            'gid' => $gid,
+            'recursive' => $recursive,
+        ]);
+        return $res ?? [];
+    }
+
+    public function statFile(string $basePath, string $relativePath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/stat', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+        ]);
+        return $res['data'] ?? [];
+    }
+
+    public function compressFiles(string $basePath, array $sources, string $destPath, string $format = 'zip'): array
+    {
+        $res = $this->request('POST', '/api/v1/files/compress', [
+            'base_path' => $basePath,
+            'sources' => $sources,
+            'dest_path' => $destPath,
+            'format' => $format,
+        ], 120);
+        return $res ?? [];
+    }
+
+    public function extractArchive(string $basePath, string $archivePath, string $destPath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/extract', [
+            'base_path' => $basePath,
+            'archive_path' => $archivePath,
+            'dest_path' => $destPath,
+        ], 120);
+        return $res ?? [];
+    }
+
+    public function searchFiles(string $basePath, string $query, int $maxResults = 100): array
+    {
+        $res = $this->request('POST', '/api/v1/files/search', [
+            'base_path' => $basePath,
+            'query' => $query,
+            'max_results' => $maxResults,
+        ], 60);
+        return $res['data'] ?? [];
+    }
+
+    public function getDiskUsage(string $basePath): array
+    {
+        $res = $this->request('POST', '/api/v1/files/disk', [
+            'base_path' => $basePath,
+        ]);
+        return $res['data'] ?? [];
     }
 
     public function executeSystemUpdate(array $payload = []): array

@@ -181,7 +181,40 @@ export interface FileEntry {
     is_dir: boolean;
     size_bytes: number;
     permissions: string;
+    mode_octal?: string;
+    owner?: string;
+    group?: string;
     modified_at: string;
+    item_count?: number;
+    mime_type?: string;
+    extension?: string;
+}
+
+export interface FileDetails {
+    name: string;
+    path: string;
+    is_dir: boolean;
+    size_bytes: number;
+    permissions: string;
+    mode_octal: string;
+    owner: string;
+    group: string;
+    uid: number;
+    gid: number;
+    modified_at: string;
+    created_at: string;
+    mime_type: string;
+    extension: string;
+    item_count: number;
+}
+
+export interface DiskUsageInfo {
+    path: string;
+    total_bytes: number;
+    used_bytes: number;
+    free_bytes: number;
+    usage_percent: number;
+    path_size: number;
 }
 
 export interface ActivityLog {
