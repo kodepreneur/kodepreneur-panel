@@ -88,7 +88,19 @@ class WebsiteController extends Controller
         $gitBranch = !empty($validated['git_branch']) ? $validated['git_branch'] : 'main';
         $domainSlug = Str::slug(explode('.', $domain)[0], '_');
         $systemUser = 'kp_' . $domainSlug;
-        $aliases = $validated['aliases'] ?? [];
+
+        $aliases = $request->input('aliases', []);
+        if (is_string($aliases)) {
+            $aliases = array_filter(array_map('trim', explode(',', $aliases)));
+        }
+        if (!is_array($aliases)) {
+            $aliases = [];
+        }
+        $aliases = array_values(array_filter(array_map('strval', $aliases)));
+
+        $autoSsl = $request->boolean('auto_ssl', false);
+        $createDatabase = $request->boolean('create_database', false);
+        $autoSetupLaravel = $request->boolean('auto_setup_laravel', true);
 
         // Auto document root determination
         if (empty($validated['document_root']) || ($projectType === 'laravel' && rtrim($validated['document_root'], '/') === "/var/www/{$domain}")) {
@@ -117,7 +129,7 @@ class WebsiteController extends Controller
 
         try {
             // 1. Provision Database if requested
-            if (!empty($validated['create_database'])) {
+            if ($createDatabase) {
                 $dbName = strtolower($validated['db_name'] ?? ('db_' . $domainSlug));
                 $dbUsername = strtolower($validated['db_username'] ?? ('u_' . $domainSlug));
                 $dbPassword = $validated['db_password'] ?: Str::password(16);
@@ -126,23 +138,23 @@ class WebsiteController extends Controller
 
                 // Provision on server via Agent
                 $this->agentClient->createDatabase([
-                    'engine' => $dbEngine,
-                    'name' => $dbName,
-                    'charset' => $charset,
-                    'collation' => $collation,
+                    'engine' => (string) $dbEngine,
+                    'name' => (string) $dbName,
+                    'charset' => (string) $charset,
+                    'collation' => (string) $collation,
                 ]);
 
                 $this->agentClient->createDatabaseUser([
-                    'engine' => $dbEngine,
-                    'username' => $dbUsername,
+                    'engine' => (string) $dbEngine,
+                    'username' => (string) $dbUsername,
                     'host' => 'localhost',
-                    'password' => $dbPassword,
+                    'password' => (string) $dbPassword,
                 ]);
 
                 $this->agentClient->grantDatabaseAccess([
-                    'engine' => $dbEngine,
-                    'database' => $dbName,
-                    'username' => $dbUsername,
+                    'engine' => (string) $dbEngine,
+                    'database' => (string) $dbName,
+                    'username' => (string) $dbUsername,
                     'host' => 'localhost',
                     'permissions' => 'all',
                 ]);
@@ -170,8 +182,8 @@ class WebsiteController extends Controller
 
             // 2. Prepare Laravel Automated Post-Setup configuration
             $laravelSetup = null;
-            if ($projectType === 'laravel' && ($validated['auto_setup_laravel'] ?? true)) {
-                $scheme = !empty($validated['auto_ssl']) ? 'https' : 'http';
+            if ($projectType === 'laravel' && $autoSetupLaravel) {
+                $scheme = $autoSsl ? 'https' : 'http';
                 $envVars = [
                     'APP_NAME' => ucfirst(explode('.', $domain)[0]),
                     'APP_ENV' => 'production',
@@ -179,40 +191,41 @@ class WebsiteController extends Controller
                     'APP_URL' => "{$scheme}://{$domain}",
                 ];
 
-                if (!empty($validated['create_database']) && !empty($dbName)) {
+                if ($createDatabase && !empty($dbName)) {
                     $envVars['DB_CONNECTION'] = $dbEngine === 'postgresql' ? 'pgsql' : 'mysql';
                     $envVars['DB_HOST'] = '127.0.0.1';
                     $envVars['DB_PORT'] = $dbEngine === 'postgresql' ? '5432' : '3306';
-                    $envVars['DB_DATABASE'] = $dbName;
-                    $envVars['DB_USERNAME'] = $dbUsername;
-                    $envVars['DB_PASSWORD'] = $dbPassword;
+                    $envVars['DB_DATABASE'] = (string) $dbName;
+                    $envVars['DB_USERNAME'] = (string) $dbUsername;
+                    $envVars['DB_PASSWORD'] = (string) $dbPassword;
                 }
 
                 $laravelSetup = [
                     'enabled' => true,
-                    'setup_env' => $validated['setup_env'] ?? true,
+                    'setup_env' => $request->boolean('setup_env', true),
                     'env_vars' => $envVars,
-                    'run_composer' => $validated['run_composer'] ?? true,
-                    'run_key_generate' => $validated['run_key_generate'] ?? true,
-                    'run_migrations' => $validated['run_migrations'] ?? true,
-                    'run_seeders' => $validated['run_seeders'] ?? false,
-                    'run_npm_build' => $validated['run_npm_build'] ?? true,
-                    'run_optimize' => $validated['run_optimize'] ?? true,
+                    'run_composer' => $request->boolean('run_composer', true),
+                    'run_key_generate' => $request->boolean('run_key_generate', true),
+                    'run_migrations' => $request->boolean('run_migrations', true),
+                    'run_seeders' => $request->boolean('run_seeders', false),
+                    'run_npm_build' => $request->boolean('run_npm_build', true),
+                    'run_optimize' => $request->boolean('run_optimize', true),
                 ];
             }
 
             // 3. Provision Virtual Host on server via Agent
             $agentPayload = [
-                'domain' => $domain,
+                'domain' => (string) $domain,
                 'aliases' => $aliases,
-                'php_version' => $validated['php_version'],
-                'document_root' => $docRoot,
-                'system_user' => $systemUser,
+                'php_version' => (string) $validated['php_version'],
+                'document_root' => (string) $docRoot,
+                'system_user' => (string) $systemUser,
                 'ssl_enabled' => false,
-                'deployment_source' => $deploymentSource,
-                'project_type' => $projectType,
-                'git_repository' => $gitRepo,
-                'git_branch' => $gitBranch,
+                'force_https' => false,
+                'deployment_source' => (string) $deploymentSource,
+                'project_type' => (string) $projectType,
+                'git_repository' => $gitRepo ? (string) $gitRepo : '',
+                'git_branch' => (string) $gitBranch,
                 'laravel_setup' => $laravelSetup,
             ];
 
@@ -277,7 +290,7 @@ class WebsiteController extends Controller
             }
 
             // 7. Auto-issue SSL if requested
-            if (!empty($validated['auto_ssl'])) {
+            if ($autoSsl) {
                 try {
                     $email = $validated['ssl_email'] ?: $request->user()->email;
                     $sslRes = $this->agentClient->issueSsl([
@@ -384,17 +397,23 @@ class WebsiteController extends Controller
             return back()->with('info', "Website is already using PHP {$newVersion}.");
         }
 
+        $aliases = $website->aliases ?? [];
+        if (!is_array($aliases)) {
+            $aliases = [];
+        }
+        $aliases = array_values(array_filter(array_map('strval', $aliases)));
+
         try {
             $this->agentClient->switchPhpVersion($website->domain, [
-                'new_php_version' => $newVersion,
-                'old_php_version' => $oldVersion,
-                'system_user' => $website->system_user,
-                'document_root' => $website->document_root,
-                'aliases' => $website->aliases ?? [],
-                'ssl_enabled' => $website->ssl_enabled,
-                'force_https' => $website->force_https,
-                'cert_path' => $website->sslCertificate?->cert_path ?? '',
-                'key_path' => $website->sslCertificate?->key_path ?? '',
+                'new_php_version' => (string) $newVersion,
+                'old_php_version' => (string) $oldVersion,
+                'system_user' => (string) $website->system_user,
+                'document_root' => (string) $website->document_root,
+                'aliases' => $aliases,
+                'ssl_enabled' => (bool) $website->ssl_enabled,
+                'force_https' => (bool) $website->force_https,
+                'cert_path' => (string) ($website->sslCertificate?->cert_path ?? ''),
+                'key_path' => (string) ($website->sslCertificate?->key_path ?? ''),
             ]);
 
             $website->update(['php_version' => $newVersion]);
@@ -429,16 +448,21 @@ class WebsiteController extends Controller
         ]);
 
         $email = $validated['email'] ?: $request->user()->email;
-        $forceHttps = $validated['force_https'] ?? true;
+        $forceHttps = $request->boolean('force_https', true);
+        $aliases = $website->aliases ?? [];
+        if (!is_array($aliases)) {
+            $aliases = [];
+        }
+        $aliases = array_values(array_filter(array_map('strval', $aliases)));
 
         try {
             $sslRes = $this->agentClient->issueSsl([
-                'domain' => $website->domain,
-                'aliases' => $website->aliases ?? [],
-                'email' => $email,
-                'document_root' => $website->document_root,
-                'php_version' => $website->php_version,
-                'system_user' => $website->system_user,
+                'domain' => (string) $website->domain,
+                'aliases' => $aliases,
+                'email' => (string) $email,
+                'document_root' => (string) $website->document_root,
+                'php_version' => (string) $website->php_version,
+                'system_user' => (string) $website->system_user,
                 'force_https' => $forceHttps,
             ]);
 

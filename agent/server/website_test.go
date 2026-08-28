@@ -248,4 +248,35 @@ func TestWebsiteDeploymentSources(t *testing.T) {
 	if laravelResp.Data.SetupResult == nil || !laravelResp.Data.SetupResult.Success {
 		t.Errorf("Expected setup_result to be successful")
 	}
+
+	// 4. Create Laravel site with string/number booleans (e.g. "1", "0", "true", "false", 1, 0)
+	flexiblePayload := []byte(`{
+		"domain": "flexible-site.com",
+		"php_version": "8.3",
+		"deployment_source": "empty",
+		"project_type": "laravel",
+		"ssl_enabled": "0",
+		"force_https": "false",
+		"laravel_setup": {
+			"enabled": "1",
+			"setup_env": "true",
+			"env_vars": {
+				"APP_NAME": "FlexApp"
+			},
+			"run_composer": 1,
+			"run_key_generate": "1",
+			"run_migrations": "1",
+			"run_seeders": "0",
+			"run_npm_build": "true",
+			"run_optimize": 1
+		}
+	}`)
+	req = httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(flexiblePayload))
+	signRequest(req, flexiblePayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for flexible booleans payload, got %d: %s", rec.Code, rec.Body.String())
+	}
 }

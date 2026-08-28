@@ -27,6 +27,37 @@ import (
 	"github.com/kodepreneur/agent/server/middleware"
 )
 
+// FlexibleBool allows unmarshaling booleans from bools, strings ("true", "false", "1", "0"), and numbers (1, 0)
+type FlexibleBool bool
+
+func (b *FlexibleBool) UnmarshalJSON(data []byte) error {
+	raw := strings.Trim(string(data), `"`)
+	switch strings.ToLower(raw) {
+	case "true", "1", "t", "yes", "on":
+		*b = true
+		return nil
+	case "false", "0", "f", "no", "off", "null", "":
+		*b = false
+		return nil
+	default:
+		var num int
+		if err := json.Unmarshal(data, &num); err == nil {
+			*b = num != 0
+			return nil
+		}
+		var boolean bool
+		if err := json.Unmarshal(data, &boolean); err == nil {
+			*b = FlexibleBool(boolean)
+			return nil
+		}
+		return fmt.Errorf("cannot unmarshal %s into FlexibleBool", string(data))
+	}
+}
+
+func (b FlexibleBool) Bool() bool {
+	return bool(b)
+}
+
 type Router struct {
 	cfg               *config.Config
 	mux               *http.ServeMux
@@ -237,34 +268,34 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Domain           string   `json:"domain"`
-		Aliases          []string `json:"aliases"`
-		PhpVersion       string   `json:"php_version"`
-		DocumentRoot     string   `json:"document_root"`
-		SystemUser       string   `json:"system_user"`
-		SslEnabled       bool     `json:"ssl_enabled"`
-		ForceHttps       bool     `json:"force_https"`
-		DeploymentSource string   `json:"deployment_source"` // "empty", "zip", "git"
-		GitRepository    string   `json:"git_repository"`
-		GitBranch        string   `json:"git_branch"`
-		ProjectType      string   `json:"project_type"` // "laravel", "generic_php", "static", "auto"
-		ZipBase64        string   `json:"zip_base64"`
-		ZipPath          string   `json:"zip_path"`
+		Domain           string       `json:"domain"`
+		Aliases          []string     `json:"aliases"`
+		PhpVersion       string       `json:"php_version"`
+		DocumentRoot     string       `json:"document_root"`
+		SystemUser       string       `json:"system_user"`
+		SslEnabled       FlexibleBool `json:"ssl_enabled"`
+		ForceHttps       FlexibleBool `json:"force_https"`
+		DeploymentSource string       `json:"deployment_source"` // "empty", "zip", "git"
+		GitRepository    string       `json:"git_repository"`
+		GitBranch        string       `json:"git_branch"`
+		ProjectType      string       `json:"project_type"` // "laravel", "generic_php", "static", "auto"
+		ZipBase64        string       `json:"zip_base64"`
+		ZipPath          string       `json:"zip_path"`
 		LaravelSetup     *struct {
-			Enabled        bool              `json:"enabled"`
-			SetupEnv       bool              `json:"setup_env"`
+			Enabled        FlexibleBool      `json:"enabled"`
+			SetupEnv       FlexibleBool      `json:"setup_env"`
 			EnvVars        map[string]string `json:"env_vars"`
-			RunComposer    bool              `json:"run_composer"`
-			RunKeyGenerate bool              `json:"run_key_generate"`
-			RunMigrations  bool              `json:"run_migrations"`
-			RunSeeders     bool              `json:"run_seeders"`
-			RunNpmBuild    bool              `json:"run_npm_build"`
-			RunOptimize    bool              `json:"run_optimize"`
+			RunComposer    FlexibleBool      `json:"run_composer"`
+			RunKeyGenerate FlexibleBool      `json:"run_key_generate"`
+			RunMigrations  FlexibleBool      `json:"run_migrations"`
+			RunSeeders     FlexibleBool      `json:"run_seeders"`
+			RunNpmBuild    FlexibleBool      `json:"run_npm_build"`
+			RunOptimize    FlexibleBool      `json:"run_optimize"`
 		} `json:"laravel_setup"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON request payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON request payload: %v", err))
 		return
 	}
 
@@ -361,28 +392,28 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 
 	// 4. Automated Laravel Post-Setup (Env & Build Commands)
 	var setupResult *git.DeploymentResult
-	if isLaravel && payload.LaravelSetup != nil && payload.LaravelSetup.Enabled {
-		if payload.LaravelSetup.SetupEnv && len(payload.LaravelSetup.EnvVars) > 0 {
+	if isLaravel && payload.LaravelSetup != nil && payload.LaravelSetup.Enabled.Bool() {
+		if payload.LaravelSetup.SetupEnv.Bool() && len(payload.LaravelSetup.EnvVars) > 0 {
 			_ = configureLaravelEnv(realBaseDir, payload.LaravelSetup.EnvVars, payload.SystemUser)
 		}
 
 		var setupCommands []string
-		if payload.LaravelSetup.RunComposer {
+		if payload.LaravelSetup.RunComposer.Bool() {
 			setupCommands = append(setupCommands, "if [ -f composer.json ]; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; fi")
 		}
-		if payload.LaravelSetup.RunKeyGenerate {
+		if payload.LaravelSetup.RunKeyGenerate.Bool() {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan key:generate --force; fi")
 		}
-		if payload.LaravelSetup.RunMigrations {
+		if payload.LaravelSetup.RunMigrations.Bool() {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan migrate --force; fi")
 		}
-		if payload.LaravelSetup.RunSeeders {
+		if payload.LaravelSetup.RunSeeders.Bool() {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan db:seed --force; fi")
 		}
-		if payload.LaravelSetup.RunNpmBuild {
+		if payload.LaravelSetup.RunNpmBuild.Bool() {
 			setupCommands = append(setupCommands, "if [ -f package.json ]; then npm install --silent 2>/dev/null || npm install; npm run build; fi")
 		}
-		if payload.LaravelSetup.RunOptimize {
+		if payload.LaravelSetup.RunOptimize.Bool() {
 			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi")
 		}
 		setupCommands = append(setupCommands, "mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache")
@@ -421,8 +452,8 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		DocumentRoot: payload.DocumentRoot,
 		PhpVersion:   payload.PhpVersion,
 		SystemUser:   payload.SystemUser,
-		SslEnabled:   payload.SslEnabled,
-		ForceHttps:   payload.ForceHttps,
+		SslEnabled:   payload.SslEnabled.Bool(),
+		ForceHttps:   payload.ForceHttps.Bool(),
 	}
 
 	vhostPath, err := r.nginxManager.DeployVhost(vhostCfg)
@@ -539,19 +570,19 @@ func (r *Router) handleWebsiteSubroutes(w http.ResponseWriter, req *http.Request
 	// PUT /api/v1/websites/{domain}/php
 	if len(parts) == 2 && parts[1] == "php" && req.Method == http.MethodPut {
 		var payload struct {
-			NewPhpVersion string   `json:"new_php_version"`
-			OldPhpVersion string   `json:"old_php_version"`
-			SystemUser    string   `json:"system_user"`
-			DocumentRoot  string   `json:"document_root"`
-			Aliases       []string `json:"aliases"`
-			SslEnabled    bool     `json:"ssl_enabled"`
-			ForceHttps    bool     `json:"force_https"`
-			CertPath      string   `json:"cert_path"`
-			KeyPath       string   `json:"key_path"`
+			NewPhpVersion string       `json:"new_php_version"`
+			OldPhpVersion string       `json:"old_php_version"`
+			SystemUser    string       `json:"system_user"`
+			DocumentRoot  string       `json:"document_root"`
+			Aliases       []string     `json:"aliases"`
+			SslEnabled    FlexibleBool `json:"ssl_enabled"`
+			ForceHttps    FlexibleBool `json:"force_https"`
+			CertPath      string       `json:"cert_path"`
+			KeyPath       string       `json:"key_path"`
 		}
 
 		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+			respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 			return
 		}
 
@@ -572,8 +603,8 @@ func (r *Router) handleWebsiteSubroutes(w http.ResponseWriter, req *http.Request
 			DocumentRoot: payload.DocumentRoot,
 			PhpVersion:   payload.NewPhpVersion,
 			SystemUser:   payload.SystemUser,
-			SslEnabled:   payload.SslEnabled,
-			ForceHttps:   payload.ForceHttps,
+			SslEnabled:   payload.SslEnabled.Bool(),
+			ForceHttps:   payload.ForceHttps.Bool(),
 			CertPath:     payload.CertPath,
 			KeyPath:      payload.KeyPath,
 		}
@@ -635,17 +666,17 @@ func (r *Router) handleSslIssue(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		Domain       string   `json:"domain"`
-		Aliases      []string `json:"aliases"`
-		Email        string   `json:"email"`
-		DocumentRoot string   `json:"document_root"`
-		PhpVersion   string   `json:"php_version"`
-		SystemUser   string   `json:"system_user"`
-		ForceHttps   bool     `json:"force_https"`
+		Domain       string       `json:"domain"`
+		Aliases      []string     `json:"aliases"`
+		Email        string       `json:"email"`
+		DocumentRoot string       `json:"document_root"`
+		PhpVersion   string       `json:"php_version"`
+		SystemUser   string       `json:"system_user"`
+		ForceHttps   FlexibleBool `json:"force_https"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
@@ -667,7 +698,7 @@ func (r *Router) handleSslIssue(w http.ResponseWriter, req *http.Request) {
 		PhpVersion:   payload.PhpVersion,
 		SystemUser:   payload.SystemUser,
 		SslEnabled:   true,
-		ForceHttps:   payload.ForceHttps,
+		ForceHttps:   payload.ForceHttps.Bool(),
 		CertPath:     certResult.CertPath,
 		KeyPath:      certResult.KeyPath,
 	}
@@ -908,13 +939,27 @@ func (r *Router) handleProcesses(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	var payload process.ProcessConfig
+	var payload struct {
+		ID          string       `json:"id"`
+		Name        string       `json:"name"`
+		Command     string       `json:"command"`
+		SystemUser  string       `json:"system_user"`
+		WorkingDir  string       `json:"working_dir"`
+		AutoRestart FlexibleBool `json:"auto_restart"`
+	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
-	unitPath, err := r.processSupervisor.CreateProcess(payload)
+	unitPath, err := r.processSupervisor.CreateProcess(process.ProcessConfig{
+		ID:          payload.ID,
+		Name:        payload.Name,
+		Command:     payload.Command,
+		SystemUser:  payload.SystemUser,
+		WorkingDir:  payload.WorkingDir,
+		AutoRestart: payload.AutoRestart.Bool(),
+	})
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "PROCESS_CREATE_FAILED", err.Error())
 		return
@@ -1024,16 +1069,16 @@ func (r *Router) handleFileBrowse(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		BasePath     string `json:"base_path"`
-		RelativePath string `json:"relative_path"`
-		ShowHidden   bool   `json:"show_hidden"`
+		BasePath     string       `json:"base_path"`
+		RelativePath string       `json:"relative_path"`
+		ShowHidden   FlexibleBool `json:"show_hidden"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
-	entries, err := r.fileManager.Browse(payload.BasePath, payload.RelativePath, payload.ShowHidden)
+	entries, err := r.fileManager.Browse(payload.BasePath, payload.RelativePath, payload.ShowHidden.Bool())
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "BROWSE_FAILED", err.Error())
 		return
@@ -1052,13 +1097,13 @@ func (r *Router) handleFileRead(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		BasePath     string `json:"base_path"`
-		RelativePath string `json:"relative_path"`
-		MaxBytes     int64  `json:"max_bytes"`
-		AsBase64     bool   `json:"as_base64"`
+		BasePath     string       `json:"base_path"`
+		RelativePath string       `json:"relative_path"`
+		MaxBytes     int64        `json:"max_bytes"`
+		AsBase64     FlexibleBool `json:"as_base64"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
@@ -1068,7 +1113,7 @@ func (r *Router) handleFileRead(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if payload.AsBase64 {
+	if payload.AsBase64.Bool() {
 		respondJSON(w, http.StatusOK, map[string]any{
 			"success":        true,
 			"content_base64": base64.StdEncoding.EncodeToString(data),
@@ -1289,17 +1334,17 @@ func (r *Router) handleFileChmod(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		BasePath     string `json:"base_path"`
-		RelativePath string `json:"relative_path"`
-		Mode         string `json:"mode"`
-		Recursive    bool   `json:"recursive"`
+		BasePath     string       `json:"base_path"`
+		RelativePath string       `json:"relative_path"`
+		Mode         string       `json:"mode"`
+		Recursive    FlexibleBool `json:"recursive"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
-	if err := r.fileManager.Chmod(payload.BasePath, payload.RelativePath, payload.Mode, payload.Recursive); err != nil {
+	if err := r.fileManager.Chmod(payload.BasePath, payload.RelativePath, payload.Mode, payload.Recursive.Bool()); err != nil {
 		respondError(w, http.StatusBadRequest, "CHMOD_FAILED", err.Error())
 		return
 	}
@@ -1317,18 +1362,18 @@ func (r *Router) handleFileChown(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		BasePath     string `json:"base_path"`
-		RelativePath string `json:"relative_path"`
-		UID          int    `json:"uid"`
-		GID          int    `json:"gid"`
-		Recursive    bool   `json:"recursive"`
+		BasePath     string       `json:"base_path"`
+		RelativePath string       `json:"relative_path"`
+		UID          int          `json:"uid"`
+		GID          int          `json:"gid"`
+		Recursive    FlexibleBool `json:"recursive"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
+		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", fmt.Sprintf("Invalid JSON payload: %v", err))
 		return
 	}
 
-	if err := r.fileManager.Chown(payload.BasePath, payload.RelativePath, payload.UID, payload.GID, payload.Recursive); err != nil {
+	if err := r.fileManager.Chown(payload.BasePath, payload.RelativePath, payload.UID, payload.GID, payload.Recursive.Bool()); err != nil {
 		respondError(w, http.StatusBadRequest, "CHOWN_FAILED", err.Error())
 		return
 	}
