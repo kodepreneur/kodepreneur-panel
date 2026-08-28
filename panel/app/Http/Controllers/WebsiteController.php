@@ -1,0 +1,338 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\ActivityLog;
+use App\Models\Domain;
+use App\Models\SslCertificate;
+use App\Models\Website;
+use App\Services\Agent\AgentClientInterface;
+use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class WebsiteController extends Controller
+{
+    public function __construct(
+        protected AgentClientInterface $agentClient
+    ) {}
+
+    public function index(): Response
+    {
+        $websites = Website::with(['sslCertificate', 'domains'])
+            ->withCount('deployments')
+            ->latest()
+            ->paginate(15);
+
+        return Inertia::render('Websites/Index', [
+            'websites' => $websites,
+        ]);
+    }
+
+    public function create(): Response
+    {
+        return Inertia::render('Websites/Create');
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'domain' => ['required', 'string', 'max:255', 'unique:websites,domain', 'regex:/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/'],
+            'php_version' => ['required', 'string', 'in:8.3,8.4,none'],
+            'document_root' => ['nullable', 'string', 'max:255'],
+            'aliases' => ['nullable', 'array'],
+            'aliases.*' => ['string', 'max:255'],
+            'auto_ssl' => ['nullable', 'boolean'],
+            'ssl_email' => ['nullable', 'email'],
+        ]);
+
+        $domain = strtolower($validated['domain']);
+        $docRoot = $validated['document_root'] ?: "/var/www/{$domain}/public";
+        $systemUser = 'kp_' . Str::slug(explode('.', $domain)[0], '_');
+        $aliases = $validated['aliases'] ?? [];
+
+        try {
+            // 1. Provision on server via Agent
+            $this->agentClient->createWebsite([
+                'domain' => $domain,
+                'aliases' => $aliases,
+                'php_version' => $validated['php_version'],
+                'document_root' => $docRoot,
+                'system_user' => $systemUser,
+                'ssl_enabled' => false,
+            ]);
+
+            // 2. Persist Website record
+            $website = Website::create([
+                'domain' => $domain,
+                'aliases' => $aliases,
+                'php_version' => $validated['php_version'],
+                'document_root' => $docRoot,
+                'system_user' => $systemUser,
+                'ssl_enabled' => false,
+                'force_https' => false,
+                'status' => 'active',
+            ]);
+
+            // 3. Create Primary Domain record
+            Domain::create([
+                'website_id' => $website->id,
+                'domain' => $domain,
+                'is_primary' => true,
+                'ssl_status' => 'pending',
+            ]);
+
+            // 4. Auto-issue SSL if requested
+            if (!empty($validated['auto_ssl'])) {
+                try {
+                    $email = $validated['ssl_email'] ?: $request->user()->email;
+                    $sslRes = $this->agentClient->issueSsl([
+                        'domain' => $domain,
+                        'aliases' => $aliases,
+                        'email' => $email,
+                        'document_root' => $docRoot,
+                        'php_version' => $validated['php_version'],
+                        'system_user' => $systemUser,
+                        'force_https' => true,
+                    ]);
+
+                    $website->update([
+                        'ssl_enabled' => true,
+                        'force_https' => true,
+                    ]);
+
+                    SslCertificate::create([
+                        'website_id' => $website->id,
+                        'domain' => $domain,
+                        'issuer' => $sslRes['issuer'] ?? "Let's Encrypt",
+                        'cert_path' => $sslRes['cert_path'] ?? null,
+                        'key_path' => $sslRes['key_path'] ?? null,
+                        'valid_from' => $sslRes['valid_from'] ?? now(),
+                        'valid_until' => $sslRes['valid_until'] ?? now()->addDays(90),
+                        'status' => 'valid',
+                    ]);
+                } catch (Exception $sslEx) {
+                    // Non-fatal: website is still created, SSL can be retried later
+                }
+            }
+
+            ActivityLog::create([
+                'user_id' => $request->user()->id,
+                'user_email' => $request->user()->email,
+                'ip_address' => $request->ip() ?: '127.0.0.1',
+                'user_agent' => $request->userAgent(),
+                'action' => 'website.create',
+                'resource_type' => 'website',
+                'resource_id' => (string) $website->id,
+                'status' => 'success',
+                'payload_summary' => [
+                    'domain' => $domain,
+                    'php_version' => $validated['php_version'],
+                    'ssl_enabled' => $website->ssl_enabled,
+                ],
+            ]);
+
+            return redirect()->route('websites.show', $website)->with('success', "Website {$domain} provisioned successfully.");
+        } catch (Exception $e) {
+            return back()->withInput()->with('error', "Failed to provision website: " . $e->getMessage());
+        }
+    }
+
+    public function show(Website $website): Response
+    {
+        $website->load(['domains', 'deployments' => fn ($q) => $q->take(10), 'sslCertificate']);
+
+        return Inertia::render('Websites/Show', [
+            'website' => $website,
+        ]);
+    }
+
+    public function update(Request $request, Website $website): RedirectResponse
+    {
+        $validated = $request->validate([
+            'document_root' => ['required', 'string', 'max:255'],
+            'force_https' => ['nullable', 'boolean'],
+        ]);
+
+        $website->update($validated);
+
+        ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'user_email' => $request->user()->email,
+            'ip_address' => $request->ip() ?: '127.0.0.1',
+            'user_agent' => $request->userAgent(),
+            'action' => 'website.update',
+            'resource_type' => 'website',
+            'resource_id' => (string) $website->id,
+            'status' => 'success',
+            'payload_summary' => $validated,
+        ]);
+
+        return back()->with('success', "Website settings updated successfully.");
+    }
+
+    public function switchPhp(Request $request, Website $website): RedirectResponse
+    {
+        $validated = $request->validate([
+            'php_version' => ['required', 'string', 'in:8.3,8.4,none'],
+        ]);
+
+        $oldVersion = $website->php_version;
+        $newVersion = $validated['php_version'];
+
+        if ($oldVersion === $newVersion) {
+            return back()->with('info', "Website is already using PHP {$newVersion}.");
+        }
+
+        try {
+            $this->agentClient->switchPhpVersion($website->domain, [
+                'new_php_version' => $newVersion,
+                'old_php_version' => $oldVersion,
+                'system_user' => $website->system_user,
+                'document_root' => $website->document_root,
+                'aliases' => $website->aliases ?? [],
+                'ssl_enabled' => $website->ssl_enabled,
+                'force_https' => $website->force_https,
+                'cert_path' => $website->sslCertificate?->cert_path ?? '',
+                'key_path' => $website->sslCertificate?->key_path ?? '',
+            ]);
+
+            $website->update(['php_version' => $newVersion]);
+
+            ActivityLog::create([
+                'user_id' => $request->user()->id,
+                'user_email' => $request->user()->email,
+                'ip_address' => $request->ip() ?: '127.0.0.1',
+                'user_agent' => $request->userAgent(),
+                'action' => 'website.switch_php',
+                'resource_type' => 'website',
+                'resource_id' => (string) $website->id,
+                'status' => 'success',
+                'payload_summary' => [
+                    'domain' => $website->domain,
+                    'from' => $oldVersion,
+                    'to' => $newVersion,
+                ],
+            ]);
+
+            return back()->with('success', "Switched runtime to PHP {$newVersion} successfully.");
+        } catch (Exception $e) {
+            return back()->with('error', "Failed to switch PHP version: " . $e->getMessage());
+        }
+    }
+
+    public function issueSsl(Request $request, Website $website): RedirectResponse
+    {
+        $validated = $request->validate([
+            'email' => ['nullable', 'email'],
+            'force_https' => ['nullable', 'boolean'],
+        ]);
+
+        $email = $validated['email'] ?: $request->user()->email;
+        $forceHttps = $validated['force_https'] ?? true;
+
+        try {
+            $sslRes = $this->agentClient->issueSsl([
+                'domain' => $website->domain,
+                'aliases' => $website->aliases ?? [],
+                'email' => $email,
+                'document_root' => $website->document_root,
+                'php_version' => $website->php_version,
+                'system_user' => $website->system_user,
+                'force_https' => $forceHttps,
+            ]);
+
+            $website->update([
+                'ssl_enabled' => true,
+                'force_https' => $forceHttps,
+            ]);
+
+            SslCertificate::updateOrCreate(
+                ['website_id' => $website->id, 'domain' => $website->domain],
+                [
+                    'issuer' => $sslRes['issuer'] ?? "Let's Encrypt",
+                    'cert_path' => $sslRes['cert_path'] ?? null,
+                    'key_path' => $sslRes['key_path'] ?? null,
+                    'valid_from' => $sslRes['valid_from'] ?? now(),
+                    'valid_until' => $sslRes['valid_until'] ?? now()->addDays(90),
+                    'status' => 'valid',
+                    'auto_renew' => true,
+                ]
+            );
+
+            ActivityLog::create([
+                'user_id' => $request->user()->id,
+                'user_email' => $request->user()->email,
+                'ip_address' => $request->ip() ?: '127.0.0.1',
+                'user_agent' => $request->userAgent(),
+                'action' => 'website.issue_ssl',
+                'resource_type' => 'website',
+                'resource_id' => (string) $website->id,
+                'status' => 'success',
+                'payload_summary' => ['domain' => $website->domain],
+            ]);
+
+            return back()->with('success', "SSL Certificate issued and applied successfully.");
+        } catch (Exception $e) {
+            return back()->with('error', "Failed to issue SSL: " . $e->getMessage());
+        }
+    }
+
+    public function logs(Request $request, Website $website, string $type): JsonResponse
+    {
+        if ($type !== 'access' && $type !== 'error') {
+            return response()->json(['error' => 'Invalid log type'], 400);
+        }
+
+        $lines = (int) $request->query('lines', 100);
+
+        try {
+            $logData = $this->agentClient->getWebsiteLogs($website->domain, $type, $lines);
+            return response()->json([
+                'success' => true,
+                'domain' => $website->domain,
+                'type' => $type,
+                'lines' => $logData['lines'] ?? [],
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function destroy(Request $request, Website $website): RedirectResponse
+    {
+        $domain = $website->domain;
+
+        try {
+            $this->agentClient->deleteWebsite($domain, [
+                'php_version' => $website->php_version,
+                'system_user' => $website->system_user,
+            ]);
+        } catch (Exception $e) {
+            // Log warning but continue local cleanup
+        }
+
+        $website->delete();
+
+        ActivityLog::create([
+            'user_id' => $request->user()->id,
+            'user_email' => $request->user()->email,
+            'ip_address' => $request->ip() ?: '127.0.0.1',
+            'user_agent' => $request->userAgent(),
+            'action' => 'website.delete',
+            'resource_type' => 'website',
+            'resource_id' => (string) $website->id,
+            'status' => 'success',
+            'payload_summary' => ['domain' => $domain],
+        ]);
+
+        return redirect()->route('websites.index')->with('success', "Website {$domain} deleted successfully.");
+    }
+}

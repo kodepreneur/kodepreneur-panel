@@ -1,0 +1,17 @@
+[Unit]
+Description=Kodepreneur Agent Daemon
+After=network.target nginx.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/kodepreneur
+ExecStart=/usr/local/bin/kodepreneur-agent --config /etc/kodepreneur/agent.yaml
+Restart=always
+RestartSec=5s
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

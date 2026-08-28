@@ -1,0 +1,8 @@
+# Kodepreneur Agent Dev Configuration
+listen_address: "127.0.0.1"
+port: 8765
+use_socket: false
+socket_path: "/tmp/kodepreneur-agent.sock"
+secret_key: "kodepreneur-dev-secret-key-change-in-production"
+allowed_drift_sec: 60
+is_dev: true
