@@ -105,6 +105,26 @@ if [ -d "${PANEL_DIR}" ]; then
     php artisan route:cache >/dev/null 2>&1 || true
     php artisan view:cache >/dev/null 2>&1 || true
 
+    # Configure high-performance upload & execution limits in php.ini
+    for VER in 8.3 8.4; do
+        for CONF in /etc/php/${VER}/fpm/php.ini /etc/php/${VER}/cli/php.ini; do
+            if [ -f "${CONF}" ]; then
+                sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 512M/' "${CONF}"
+                sed -i 's/^post_max_size = .*/post_max_size = 512M/' "${CONF}"
+                sed -i 's/^memory_limit = .*/memory_limit = 512M/' "${CONF}"
+                sed -i 's/^max_execution_time = .*/max_execution_time = 600/' "${CONF}"
+                sed -i 's/^max_input_time = .*/max_input_time = 600/' "${CONF}"
+            fi
+        done
+    done
+    systemctl reload php8.3-fpm php8.4-fpm 2>/dev/null || true
+
+    # Update panel Nginx configuration if present
+    if [ -f "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" ] && [ -f /etc/nginx/sites-available/kodepreneur-panel.conf ]; then
+        PANEL_PORT_DETECTED=$(grep -oP 'listen \K[0-9]+' /etc/nginx/sites-available/kodepreneur-panel.conf 2>/dev/null | head -1 || echo "8080")
+        sed "s/{{PANEL_PORT}}/${PANEL_PORT_DETECTED}/g" "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" > /etc/nginx/sites-available/kodepreneur-panel.conf
+    fi
+
     chown -R www-data:www-data "${PANEL_DIR}"
     chmod -R 775 "${PANEL_DIR}/storage" "${PANEL_DIR}/bootstrap/cache" "${PANEL_DIR}/database"
     echo -e "${COLOR_GREEN}✓ Control plane updated and cached.${COLOR_RESET}"

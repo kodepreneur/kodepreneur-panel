@@ -229,7 +229,7 @@ function submit() {
                     <div v-if="form.deployment_source === 'zip'" class="space-y-3 p-4 rounded-xl bg-slate-50 dark:bg-surface-950/50 border border-slate-200/80 dark:border-surface-800/80">
                         <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 flex items-center justify-between">
                             <span>Project Archive (.ZIP) <span class="text-rose-500">*</span></span>
-                            <span class="text-[11px] text-slate-400 dark:text-surface-500 font-normal">Max size: 100MB</span>
+                            <span class="text-[11px] text-slate-400 dark:text-surface-500 font-normal">Max size: 500MB</span>
                         </label>
 
                         <div

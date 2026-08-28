@@ -152,13 +152,13 @@ func (m *Manager) CreatePool(cfg PoolConfig) (string, error) {
 		cfg.MaxRequests = 500
 	}
 	if cfg.MemoryLimit == "" {
-		cfg.MemoryLimit = "256M"
+		cfg.MemoryLimit = "512M"
 	}
 	if cfg.UploadMaxFilesize == "" {
-		cfg.UploadMaxFilesize = "64M"
+		cfg.UploadMaxFilesize = "512M"
 	}
 	if cfg.PostMaxSize == "" {
-		cfg.PostMaxSize = "64M"
+		cfg.PostMaxSize = "512M"
 	}
 
 	tmpl, err := template.New("php_pool").Parse(poolTemplate)

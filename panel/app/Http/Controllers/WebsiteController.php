@@ -41,6 +41,10 @@ class WebsiteController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        @set_time_limit(600);
+        @ini_set('max_execution_time', '600');
+        @ini_set('memory_limit', '512M');
+
         $validated = $request->validate([
             'domain' => ['required', 'string', 'max:255', 'unique:websites,domain', 'regex:/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/'],
             'php_version' => ['required', 'string', 'in:8.3,8.4,none'],
@@ -49,7 +53,7 @@ class WebsiteController extends Controller
             'document_root' => ['nullable', 'string', 'max:255'],
             'git_repository' => ['required_if:deployment_source,git', 'nullable', 'string', 'max:255'],
             'git_branch' => ['nullable', 'string', 'max:100'],
-            'zip_file' => ['required_if:deployment_source,zip', 'nullable', 'file', 'mimes:zip', 'max:102400'],
+            'zip_file' => ['required_if:deployment_source,zip', 'nullable', 'file', 'mimes:zip', 'max:524288'],
             'aliases' => ['nullable', 'array'],
             'aliases.*' => ['string', 'max:255'],
             'auto_ssl' => ['nullable', 'boolean'],
@@ -70,10 +74,12 @@ class WebsiteController extends Controller
             $docRoot = "/var/www/{$domain}/public";
         }
 
-        $zipBase64 = null;
+        $fullZipPath = null;
         if ($deploymentSource === 'zip' && $request->hasFile('zip_file')) {
             $zipFile = $request->file('zip_file');
-            $zipBase64 = base64_encode(file_get_contents($zipFile->getRealPath()));
+            $storedName = 'upload_' . Str::uuid()->toString() . '.zip';
+            $tempZipPath = $zipFile->storeAs('temp-zips', $storedName, 'local');
+            $fullZipPath = storage_path('app/' . $tempZipPath);
         }
 
         try {
@@ -91,8 +97,8 @@ class WebsiteController extends Controller
                 'git_branch' => $gitBranch,
             ];
 
-            if ($zipBase64) {
-                $agentPayload['zip_base64'] = $zipBase64;
+            if (!empty($fullZipPath) && file_exists($fullZipPath)) {
+                $agentPayload['zip_path'] = $fullZipPath;
             }
 
             $agentRes = $this->agentClient->createWebsite($agentPayload);
@@ -194,6 +200,10 @@ class WebsiteController extends Controller
             return redirect()->route('websites.show', $website)->with('success', "Website {$domain} provisioned successfully.");
         } catch (Exception $e) {
             return back()->withInput()->with('error', "Failed to provision website: " . $e->getMessage());
+        } finally {
+            if (!empty($fullZipPath) && file_exists($fullZipPath)) {
+                @unlink($fullZipPath);
+            }
         }
     }
 

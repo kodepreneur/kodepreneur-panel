@@ -76,6 +76,8 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
 
+    client_max_body_size 512M;
+
     # Logging
     access_log {{ .AccessLog }};
     error_log {{ .ErrorLog }} warn;

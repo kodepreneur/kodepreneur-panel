@@ -65,6 +65,19 @@ apt-get install -y -qq \
     php8.4-readline \
     php8.4-opcache
 
+# Configure high-performance upload & execution limits in php.ini
+for VER in 8.3 8.4; do
+    for CONF in /etc/php/${VER}/fpm/php.ini /etc/php/${VER}/cli/php.ini; do
+        if [ -f "${CONF}" ]; then
+            sed -i 's/^upload_max_filesize = .*/upload_max_filesize = 512M/' "${CONF}"
+            sed -i 's/^post_max_size = .*/post_max_size = 512M/' "${CONF}"
+            sed -i 's/^memory_limit = .*/memory_limit = 512M/' "${CONF}"
+            sed -i 's/^max_execution_time = .*/max_execution_time = 600/' "${CONF}"
+            sed -i 's/^max_input_time = .*/max_input_time = 600/' "${CONF}"
+        fi
+    done
+done
+
 # Ensure FPM services are running
 systemctl enable php8.3-fpm php8.4-fpm >/dev/null 2>&1 || true
 systemctl restart php8.3-fpm php8.4-fpm >/dev/null 2>&1 || true
