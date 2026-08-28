@@ -51,6 +51,25 @@ func (p *PostgresManager) execQueryOutput(database, query string) (string, error
 	return string(out), nil
 }
 
+func (p *PostgresManager) execDatabaseQuery(database, query string) error {
+	if p.isDev {
+		return nil
+	}
+
+	args := []string{"-u", "postgres", "psql"}
+	if database != "" {
+		args = append(args, "-d", database)
+	}
+	args = append(args, "-c", query)
+
+	cmd := exec.Command("sudo", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("postgres error on database '%s': %s: %s", database, err.Error(), strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func (p *PostgresManager) CreateDatabase(name, encoding, owner string) error {
 	if encoding == "" {
 		encoding = "UTF8"
@@ -62,7 +81,22 @@ func (p *PostgresManager) CreateDatabase(name, encoding, owner string) error {
 	}
 
 	query := fmt.Sprintf("CREATE DATABASE \"%s\" ENCODING '%s' %s;", name, encoding, ownerClause)
-	return p.execQuery(query)
+	if err := p.execQuery(query); err != nil {
+		return err
+	}
+
+	if owner != "" {
+		schemaQuery := fmt.Sprintf(
+			"GRANT ALL ON SCHEMA public TO \"%s\"; "+
+				"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"%s\"; "+
+				"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"%s\"; "+
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"%s\"; "+
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"%s\";",
+			owner, owner, owner, owner, owner,
+		)
+		_ = p.execDatabaseQuery(name, schemaQuery)
+	}
+	return nil
 }
 
 func (p *PostgresManager) DropDatabase(name string) error {
@@ -85,13 +119,52 @@ func (p *PostgresManager) GrantPrivileges(database, username, privileges string)
 		privileges = "ALL PRIVILEGES"
 	}
 
+	// 1. Grant database-level privileges
 	query := fmt.Sprintf("GRANT %s ON DATABASE \"%s\" TO \"%s\";", privileges, database, username)
-	return p.execQuery(query)
+	if err := p.execQuery(query); err != nil {
+		return err
+	}
+
+	// 2. Grant schema-level and default privileges inside the target database.
+	// In PostgreSQL 15+, public schema permissions are revoked from PUBLIC by default.
+	// Granting ALL on SCHEMA public and default object privileges allows migrations to create tables and sequences seamlessly.
+	if database != "" {
+		schemaQuery := fmt.Sprintf(
+			"GRANT ALL ON SCHEMA public TO \"%s\"; "+
+				"GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"%s\"; "+
+				"GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"%s\"; "+
+				"GRANT ALL PRIVILEGES ON ALL ROUTINES IN SCHEMA public TO \"%s\"; "+
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO \"%s\"; "+
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO \"%s\"; "+
+				"ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO \"%s\";",
+			username, username, username, username, username, username, username,
+		)
+		if err := p.execDatabaseQuery(database, schemaQuery); err != nil {
+			return fmt.Errorf("failed to grant schema privileges on %s to %s: %w", database, username, err)
+		}
+	}
+
+	return nil
 }
 
 func (p *PostgresManager) RevokePrivileges(database, username string) error {
 	query := fmt.Sprintf("REVOKE ALL PRIVILEGES ON DATABASE \"%s\" FROM \"%s\";", database, username)
-	return p.execQuery(query)
+	if err := p.execQuery(query); err != nil {
+		return err
+	}
+
+	if database != "" {
+		schemaQuery := fmt.Sprintf(
+			"REVOKE ALL ON SCHEMA public FROM \"%s\"; "+
+				"REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM \"%s\"; "+
+				"REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM \"%s\"; "+
+				"REVOKE ALL PRIVILEGES ON ALL ROUTINES IN SCHEMA public FROM \"%s\";",
+			username, username, username, username,
+		)
+		_ = p.execDatabaseQuery(database, schemaQuery)
+	}
+
+	return nil
 }
 
 func (p *PostgresManager) ChangePassword(username, newPassword string) error {
