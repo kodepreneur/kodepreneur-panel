@@ -5,6 +5,7 @@ After=network.target nginx.service
 [Service]
 Type=simple
 User=root
+Environment="PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 WorkingDirectory=/etc/kodepreneur
 ExecStart=/usr/local/bin/kodepreneur-agent --config /etc/kodepreneur/agent.yaml
 Restart=always

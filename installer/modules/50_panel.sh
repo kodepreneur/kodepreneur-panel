@@ -16,6 +16,14 @@ if [ -d "${PROJECT_ROOT}/panel" ] && [ "${PROJECT_ROOT}/panel" != "${PANEL_DIR}"
     cp -r "${PROJECT_ROOT}/panel/." "${PANEL_DIR}/"
 fi
 
+# Ensure installer update scripts are preserved locally
+if [ -d "${PROJECT_ROOT}/installer" ]; then
+    mkdir -p "${PANEL_DIR}/installer" /etc/kodepreneur
+    cp -r "${PROJECT_ROOT}/installer/." "${PANEL_DIR}/installer/"
+    cp -f "${PROJECT_ROOT}/installer/update.sh" /etc/kodepreneur/update.sh
+    chmod +x /etc/kodepreneur/update.sh "${PANEL_DIR}/installer/update.sh"
+fi
+
 cd "${PANEL_DIR}"
 
 # Create SQLite database file

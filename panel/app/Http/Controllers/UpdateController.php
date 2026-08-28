@@ -40,6 +40,9 @@ class UpdateController extends Controller
 
     public function execute(Request $request): JsonResponse
     {
+        @set_time_limit(600);
+        @ini_set('max_execution_time', '600');
+
         $repository = $request->input('repository', 'https://github.com/kodepreneur/kodepreneur-panel.git');
         $branch = $request->input('branch', 'main');
 

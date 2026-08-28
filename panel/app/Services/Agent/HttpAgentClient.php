@@ -110,7 +110,7 @@ class HttpAgentClient implements AgentClientInterface
 
     public function executeDeployment(array $payload): array
     {
-        $res = $this->request('POST', '/api/v1/deployments/execute', $payload);
+        $res = $this->request('POST', '/api/v1/deployments/execute', $payload, 600);
         return $res['data'] ?? [];
     }
 
@@ -192,11 +192,11 @@ class HttpAgentClient implements AgentClientInterface
 
     public function executeSystemUpdate(array $payload = []): array
     {
-        $res = $this->request('POST', '/api/v1/system/update', $payload);
+        $res = $this->request('POST', '/api/v1/system/update', $payload, 600);
         return $res['data'] ?? [];
     }
 
-    protected function request(string $method, string $path, array $data = []): array
+    protected function request(string $method, string $path, array $data = [], int $timeout = 30): array
     {
         $url = rtrim($this->baseUrl, '/') . $path;
         $timestamp = (string) time();
@@ -220,7 +220,7 @@ class HttpAgentClient implements AgentClientInterface
 
         try {
             $response = Http::withHeaders($headers)
-                ->timeout(20)
+                ->timeout($timeout)
                 ->send($method, $url, [
                     'body' => $body,
                 ]);

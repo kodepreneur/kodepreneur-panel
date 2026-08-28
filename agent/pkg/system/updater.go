@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -85,9 +86,69 @@ func (u *UpdateRunner) Execute(req UpdateRequest) (*UpdateResult, error) {
 	var logs bytes.Buffer
 	logs.WriteString(fmt.Sprintf("[%s] [kodepreneur-update] Initializing root update runner...\n", time.Now().Format("15:04:05")))
 
-	// Try running installer/update.sh if it exists, or run inline update script
-	updateScriptPath := "/var/www/kodepreneur-panel/installer/update.sh"
-	cmd := exec.CommandContext(ctx, "/bin/bash", updateScriptPath)
+	// Resolve update.sh candidate paths
+	candidatePaths := []string{
+		"/var/www/kodepreneur-panel/installer/update.sh",
+		"/etc/kodepreneur/update.sh",
+		"/usr/local/share/kodepreneur/installer/update.sh",
+		"/tmp/kodepreneur-panel-update/installer/update.sh",
+	}
+
+	updateScriptPath := ""
+	for _, p := range candidatePaths {
+		if info, err := os.Stat(p); err == nil && !info.IsDir() {
+			updateScriptPath = p
+			break
+		}
+	}
+
+	// If no local update.sh found, clone fresh repo into /tmp/kodepreneur-panel-update
+	if updateScriptPath == "" {
+		logs.WriteString(fmt.Sprintf("[%s] [kodepreneur-update] Local update script not found. Fetching from %s...\n", time.Now().Format("15:04:05"), req.Repository))
+		tmpDir := "/tmp/kodepreneur-panel-update"
+		_ = os.RemoveAll(tmpDir)
+
+		cloneCmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "-b", req.Branch, req.Repository, tmpDir)
+		cloneCmd.Env = append(os.Environ(), "PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
+		if cloneOut, cloneErr := cloneCmd.CombinedOutput(); cloneErr != nil {
+			// Fallback without specific branch
+			fallbackClone := exec.CommandContext(ctx, "git", "clone", "--depth", "1", req.Repository, tmpDir)
+			fallbackClone.Env = cloneCmd.Env
+			fbOut, fbErr := fallbackClone.CombinedOutput()
+			logs.Write(cloneOut)
+			logs.Write(fbOut)
+			if fbErr != nil {
+				return &UpdateResult{
+					Success:         false,
+					ExitCode:        1,
+					LogOutput:       logs.String() + fmt.Sprintf("\n[error] Failed to clone update repository: %v", fbErr),
+					DurationSeconds: int(time.Since(start).Seconds()),
+				}, nil
+			}
+		} else {
+			logs.Write(cloneOut)
+		}
+
+		downloadedScript := "/tmp/kodepreneur-panel-update/installer/update.sh"
+		if _, err := os.Stat(downloadedScript); err == nil {
+			updateScriptPath = downloadedScript
+			_ = os.Chmod(downloadedScript, 0755)
+		}
+	}
+
+	if updateScriptPath == "" {
+		return &UpdateResult{
+			Success:         false,
+			ExitCode:        1,
+			LogOutput:       logs.String() + "\n[error] Could not locate or download installer/update.sh.",
+			DurationSeconds: int(time.Since(start).Seconds()),
+		}, nil
+	}
+
+	logs.WriteString(fmt.Sprintf("[%s] [kodepreneur-update] Executing update script at %s...\n", time.Now().Format("15:04:05"), updateScriptPath))
+
+	cmd := exec.CommandContext(ctx, "/bin/bash", updateScriptPath, "--daemon-mode", "--branch", req.Branch, "--repo", req.Repository)
+	cmd.Env = append(os.Environ(), "PATH=/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin")
 	out, err := cmd.CombinedOutput()
 	logs.Write(out)
 
@@ -119,6 +180,15 @@ func (u *UpdateRunner) Execute(req UpdateRequest) (*UpdateResult, error) {
 	gitMsgCmd := exec.CommandContext(ctx, "git", "-C", "/var/www/kodepreneur-panel", "log", "-1", "--pretty=%B")
 	if msgOut, msgErr := gitMsgCmd.Output(); msgErr == nil {
 		commitMsg = strings.TrimSpace(string(msgOut))
+	}
+
+	// If successfully updated on a live server, schedule a graceful restart of kodepreneur-agent
+	// with a short delay so the current HTTP response is fully returned to the client before restart.
+	if success && !u.isDev {
+		go func() {
+			time.Sleep(2 * time.Second)
+			_ = exec.Command("systemctl", "restart", "kodepreneur-agent").Run()
+		}()
 	}
 
 	return &UpdateResult{

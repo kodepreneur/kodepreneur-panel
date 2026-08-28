@@ -22,10 +22,10 @@ func NewServer(cfg *config.Config) *Server {
 	router := NewRouter(cfg)
 
 	httpServer := &http.Server{
-		Handler:      router.Handler(),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 60 * time.Second,
-		IdleTimeout:  120 * time.Second,
+		Handler:           router.Handler(),
+		ReadHeaderTimeout: 15 * time.Second,
+		WriteTimeout:      600 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	return &Server{

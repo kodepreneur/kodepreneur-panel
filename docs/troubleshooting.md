@@ -4,16 +4,22 @@ This guide outlines standard operating procedures for troubleshooting bugs, insp
 
 ---
 
-## 1. Automated Updating (1-Command)
+## 1. Automated Updating
 
-### Option A: One-Line Remote Updater (Recommended)
-Run directly from any terminal on your server:
+### Option A: In-Panel Web UI (1-Click)
+Navigate to **Settings / Updates** (`/updates`) in the Kodepreneur Panel web interface:
+1. Click **Check for Updates** to fetch the latest GitHub releases.
+2. Click **Update Panel Now** / **Upgrade to Latest**.
+3. The UI streams the real-time build and migration logs. The Go Agent daemon executes the update in `--daemon-mode` with an extended 600s execution window, returns the full log to the browser, and then performs an asynchronous, graceful service restart without interrupting HTTP responses.
+
+### Option B: One-Line Remote Updater (SSH)
+Run directly from any root SSH terminal on your server:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/update.sh | sudo bash
 ```
 
-### Option B: Local Repository Updater
+### Option C: Local Repository Updater
 If you have cloned the repository locally on your server:
 
 ```bash
