@@ -34,6 +34,7 @@ type Router struct {
 	processSupervisor *process.Supervisor
 	firewallManager   *firewall.Manager
 	fileManager       *filemanager.Manager
+	updater           *system.UpdateRunner
 }
 
 func NewRouter(cfg *config.Config) *Router {
@@ -50,6 +51,7 @@ func NewRouter(cfg *config.Config) *Router {
 		processSupervisor: process.NewSupervisor(cfg.Environment.IsDev),
 		firewallManager:   firewall.NewManager(cfg.Environment.IsDev),
 		fileManager:       filemanager.NewManager(cfg.Environment.IsDev),
+		updater:           system.NewUpdateRunner(cfg.Environment.IsDev),
 	}
 	r.registerRoutes()
 	return r
@@ -61,9 +63,10 @@ func (r *Router) registerRoutes() {
 	r.mux.Handle("/health", healthHandler)
 	r.mux.Handle("/api/v1/health", healthHandler)
 
-	// System Information & Telemetry
+	// System Information & Telemetry & Updates
 	r.mux.Handle("/api/v1/system/info", http.HandlerFunc(r.handleSystemInfo))
 	r.mux.Handle("/api/v1/system/metrics", http.HandlerFunc(r.handleSystemMetrics))
+	r.mux.Handle("/api/v1/system/update", http.HandlerFunc(r.handleSystemUpdate))
 
 	// Service Management
 	r.mux.Handle("/api/v1/services/", http.HandlerFunc(r.handleServices))
@@ -136,6 +139,29 @@ func (r *Router) handleSystemMetrics(w http.ResponseWriter, req *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"data":    metrics,
+	})
+}
+
+func (r *Router) handleSystemUpdate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var updateReq system.UpdateRequest
+	if req.Body != nil {
+		_ = json.NewDecoder(req.Body).Decode(&updateReq)
+	}
+
+	result, err := r.updater.Execute(updateReq)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "UPDATE_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": result.Success,
+		"data":    result,
 	})
 }
 

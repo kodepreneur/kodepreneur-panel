@@ -15,12 +15,33 @@ if [ "${EUID:-$(id -u)}" -ne 0 ]; then
     exit 1
 fi
 
+REPO_GIT_URL="https://github.com/kodepreneur/kodepreneur-panel.git"
 PANEL_DIR="/var/www/kodepreneur-panel"
 AGENT_BIN="/usr/local/bin/kodepreneur-agent"
-INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
+
+# Determine PROJECT_ROOT and INSTALLER_DIR
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
+else
+    INSTALLER_DIR="$(pwd)/installer"
+    PROJECT_ROOT="$(pwd)"
+fi
 
 echo -e "${COLOR_BLUE}🚀 Starting Kodepreneur Panel update...${COLOR_RESET}"
+
+# If executed via curl | bash or missing local sources, clone latest from GitHub
+if [ ! -d "${PROJECT_ROOT}/panel" ] || [ ! -d "${PROJECT_ROOT}/agent" ]; then
+    echo -e "${COLOR_BLUE}Fetching latest release from ${REPO_GIT_URL}...${COLOR_RESET}"
+    TMP_UPDATE_DIR="/tmp/kodepreneur-panel-update"
+    rm -rf "${TMP_UPDATE_DIR}"
+    git clone --depth 1 "${REPO_GIT_URL}" "${TMP_UPDATE_DIR}"
+    PROJECT_ROOT="${TMP_UPDATE_DIR}"
+elif [ -d "${PROJECT_ROOT}/.git" ]; then
+    echo -e "${COLOR_BLUE}Pulling latest changes from Git repository...${COLOR_RESET}"
+    (cd "${PROJECT_ROOT}" && git pull --ff-only origin main 2>/dev/null || git pull 2>/dev/null || true)
+fi
+
 
 # 1. Update Laravel Control Plane
 if [ -d "${PANEL_DIR}" ]; then

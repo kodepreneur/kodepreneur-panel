@@ -11,6 +11,7 @@ use App\Http\Controllers\FirewallController;
 use App\Http\Controllers\ProcessController;
 use App\Http\Controllers\ServiceController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\UpdateController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -83,4 +84,9 @@ Route::middleware('auth')->group(function () {
     // Settings
     Route::get('/settings', [SettingController::class, 'index'])->name('settings.index');
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
+
+    // System Updates
+    Route::get('/updates', [UpdateController::class, 'index'])->name('updates.index');
+    Route::post('/updates/check', [UpdateController::class, 'check'])->name('updates.check');
+    Route::post('/updates/execute', [UpdateController::class, 'execute'])->name('updates.execute');
 });

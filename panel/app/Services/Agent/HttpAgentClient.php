@@ -190,6 +190,12 @@ class HttpAgentClient implements AgentClientInterface
         return $res ?? [];
     }
 
+    public function executeSystemUpdate(array $payload = []): array
+    {
+        $res = $this->request('POST', '/api/v1/system/update', $payload);
+        return $res['data'] ?? [];
+    }
+
     protected function request(string $method, string $path, array $data = []): array
     {
         $url = rtrim($this->baseUrl, '/') . $path;

@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,7 +17,13 @@ import (
 )
 
 func createAuthenticatedRequest(method, path string, body []byte, secret string) *http.Request {
-	req := httptest.NewRequest(method, path, nil)
+	var bodyReader *bytes.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	} else {
+		bodyReader = bytes.NewReader([]byte{})
+	}
+	req := httptest.NewRequest(method, path, bodyReader)
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	nonce := strconv.FormatInt(time.Now().UnixNano(), 10)
 
@@ -90,5 +97,31 @@ func TestServer_HealthAndMetricsEndpoints(t *testing.T) {
 
 	if metricsRes.Data.CPU.Cores == 0 {
 		t.Fatal("expected CPU cores > 0")
+	}
+
+	// 4. Authenticated System Update
+	updateReqPayload := []byte(`{"repository":"https://github.com/kodepreneur/kodepreneur-panel.git","branch":"main"}`)
+	updateReq := createAuthenticatedRequest("POST", "/api/v1/system/update", updateReqPayload, cfg.Security.SecretKey)
+	updateRR := httptest.NewRecorder()
+	handler.ServeHTTP(updateRR, updateReq)
+
+	if updateRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for /api/v1/system/update, got %d: %s", updateRR.Code, updateRR.Body.String())
+	}
+
+	var updateRes struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Success    bool   `json:"success"`
+			CommitHash string `json:"commit_hash"`
+			LogOutput  string `json:"log_output"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(updateRR.Body.Bytes(), &updateRes); err != nil || !updateRes.Success || !updateRes.Data.Success {
+		t.Fatalf("failed parsing update response: %s", updateRR.Body.String())
+	}
+
+	if updateRes.Data.CommitHash == "" {
+		t.Fatal("expected commit hash in update response")
 	}
 }

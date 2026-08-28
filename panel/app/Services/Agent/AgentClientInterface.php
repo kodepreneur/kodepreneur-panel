@@ -138,4 +138,9 @@ interface AgentClientInterface
      * Delete file or folder safely.
      */
     public function deleteFile(string $basePath, string $relativePath): array;
+
+    /**
+     * Trigger root-level automated system update pipeline.
+     */
+    public function executeSystemUpdate(array $payload = []): array;
 }

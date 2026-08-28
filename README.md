@@ -50,20 +50,27 @@
 
 ---
 
-## ⚡ Quick 1-Line Installation
+## ⚡ Quick 1-Line Installation & Updates
 
+### Fresh Installation
 Run the automated installer on a clean **Ubuntu 24.04 LTS** or **Ubuntu 22.04 LTS** server:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/install.sh | sudo bash
 ```
 
-Or clone and install interactively:
+### Upgrade / Update Existing Installation
+To upgrade a live server to the latest version directly from GitHub:
 
 ```bash
-git clone https://github.com/kodepreneur/kodepreneur-panel.git /tmp/kodepreneur
-cd /tmp/kodepreneur/installer
-sudo ./install.sh
+curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/update.sh | sudo bash
+```
+
+Or update via local repository:
+```bash
+cd /path/to/kodepreneur-panel
+git pull origin main
+sudo ./installer/update.sh
 ```
 
 ---

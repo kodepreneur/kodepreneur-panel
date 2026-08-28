@@ -196,6 +196,31 @@ export interface ActivityLog {
     created_at: string;
 }
 
+export interface GitCommitInfo {
+    hash: string;
+    short_hash: string;
+    message: string;
+    author: string;
+    date: string;
+    url?: string;
+}
+
+export interface UpdateInfo {
+    current_version: string;
+    current_commit: string;
+    current_commit_date?: string;
+    branch: string;
+    repository: string;
+    latest_commit: GitCommitInfo | null;
+    has_update: boolean;
+    behind_by?: number;
+    last_checked_at: string;
+    laravel_version: string;
+    php_version: string;
+    agent_status: 'active' | 'degraded' | 'unreachable' | string;
+    recent_commits: GitCommitInfo[];
+}
+
 export type PageProps<T extends Record<string, unknown> = Record<string, unknown>> = T & {
     auth: {
         user: User | null;

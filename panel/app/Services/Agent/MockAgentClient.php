@@ -304,4 +304,41 @@ class MockAgentClient implements AgentClientInterface
             'message' => "Entry deleted successfully",
         ];
     }
+
+    public function executeSystemUpdate(array $payload = []): array
+    {
+        $repo = $payload['repository'] ?? 'https://github.com/kodepreneur/kodepreneur-panel.git';
+        $branch = $payload['branch'] ?? 'main';
+
+        $logs = [];
+        $logs[] = "[" . date('H:i:s') . "] 🚀 Starting Kodepreneur Panel Automated Update Pipeline...";
+        $logs[] = "[" . date('H:i:s') . "] [1/6] Fetching latest release from {$repo} (branch: {$branch})...";
+        $logs[] = "  - Cloned latest commits successfully (HEAD -> 8706c6c)";
+        $logs[] = "[" . date('H:i:s') . "] [2/6] Synchronizing Control Plane files and updating Composer packages...";
+        $logs[] = "  - Installing dependencies (no-dev, --optimize-autoloader)";
+        $logs[] = "  - Generated optimized autoload files containing 3,420 classes";
+        $logs[] = "[" . date('H:i:s') . "] [3/6] Running database migrations...";
+        $logs[] = "  - Nothing to migrate / Migrations applied up to date";
+        $logs[] = "[" . date('H:i:s') . "] [4/6] Compiling frontend assets via Vite...";
+        $logs[] = "  - vite v6.4.3 building for production...";
+        $logs[] = "  - ✓ built in 1.45s";
+        $logs[] = "[" . date('H:i:s') . "] [5/6] Optimizing Laravel application caches and permissions...";
+        $logs[] = "  - Configuration cache cleared and rebuilt.";
+        $logs[] = "  - Route cache optimized.";
+        $logs[] = "  - Set ownership to www-data:www-data";
+        $logs[] = "[" . date('H:i:s') . "] [6/6] Recompiling Go Agent daemon and reloading Nginx...";
+        $logs[] = "  - kodepreneur-agent binary updated: /usr/local/bin/kodepreneur-agent";
+        $logs[] = "  - Restarted kodepreneur-agent.service";
+        $logs[] = "  - Nginx configuration valid. Reloaded nginx.service";
+        $logs[] = "[" . date('H:i:s') . "] 🎉 Kodepreneur Panel successfully updated in 1s!";
+
+        return [
+            'success' => true,
+            'exit_code' => 0,
+            'log_output' => implode("\n", $logs),
+            'duration_seconds' => 1,
+            'commit_hash' => '8706c6c49832',
+            'commit_message' => 'feat(updates): add automated in-panel GitHub upgrade manager',
+        ];
+    }
 }

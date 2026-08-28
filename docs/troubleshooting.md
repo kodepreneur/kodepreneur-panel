@@ -6,11 +6,19 @@ This guide outlines standard operating procedures for troubleshooting bugs, insp
 
 ## 1. Automated Updating (1-Command)
 
-If you have cloned the repository or pulled new code, run the automated updater:
+### Option A: One-Line Remote Updater (Recommended)
+Run directly from any terminal on your server:
 
 ```bash
-sudo /var/www/kodepreneur-panel/installer/update.sh
-# Or from the repository root:
+curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/update.sh | sudo bash
+```
+
+### Option B: Local Repository Updater
+If you have cloned the repository locally on your server:
+
+```bash
+cd /path/to/kodepreneur-panel
+git pull origin main
 sudo ./installer/update.sh
 ```
 
