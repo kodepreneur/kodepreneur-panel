@@ -56,7 +56,11 @@ server {
 
     server_name {{ .Domain }}{{ range .Aliases }} {{ . }}{{ end }};
     root {{ .DocumentRoot }};
+{{- if eq .PhpVersion "none" }}
+    index index.html index.htm;
+{{- else }}
     index index.php index.html index.htm;
+{{- end }}
 
     charset utf-8;
 
@@ -93,12 +97,17 @@ server {
     location = /favicon.ico { access_log off; log_not_found off; }
     location = /robots.txt  { access_log off; log_not_found off; }
 
-    # Main application routing
+{{- if eq .PhpVersion "none" }}
+    # Static Site routing
+    location / {
+        try_files $uri $uri/ /index.html =404;
+    }
+{{- else }}
+    # PHP application routing
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
 
-{{- if ne .PhpVersion "none" }}
     # PHP-FPM FastCGI Handler
     location ~ \.php$ {
         fastcgi_pass unix:/run/php/php{{ .PhpVersion }}-fpm-{{ .SystemUser }}.sock;

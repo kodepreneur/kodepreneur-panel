@@ -215,17 +215,21 @@ func (m *Manager) SwitchVersion(cfg PoolConfig, oldVersion string) error {
 	return nil
 }
 
-// ReloadFpm sends reload signal to php-fpm systemd unit.
+// ReloadFpm sends reload-or-restart signal to php-fpm systemd unit.
 func (m *Manager) ReloadFpm(phpVersion string) error {
 	if m.isDev || runtime.GOOS != "linux" {
 		return nil
 	}
 
 	serviceName := fmt.Sprintf("php%s-fpm", phpVersion)
-	cmd := exec.Command("systemctl", "reload", serviceName)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("%s: %s", err.Error(), strings.TrimSpace(string(out)))
+	cmd := exec.Command("systemctl", "reload-or-restart", serviceName)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		// Fallback to explicit restart
+		cmdRestart := exec.Command("systemctl", "restart", serviceName)
+		outRestart, errRestart := cmdRestart.CombinedOutput()
+		if errRestart != nil {
+			return fmt.Errorf("%s: %s (fallback from reload: %s)", errRestart.Error(), strings.TrimSpace(string(outRestart)), strings.TrimSpace(string(out)))
+		}
 	}
 	return nil
 }
