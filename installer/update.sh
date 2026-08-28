@@ -117,12 +117,22 @@ if [ -d "${PANEL_DIR}" ]; then
             fi
         done
     done
-    systemctl reload php8.3-fpm php8.4-fpm 2>/dev/null || true
+    # Restart PHP-FPM runtimes to apply configuration & ensure sockets are alive
+    echo -e "${COLOR_BLUE}  - Restarting PHP-FPM runtimes...${COLOR_RESET}"
+    systemctl restart php8.4-fpm php8.3-fpm 2>/dev/null || true
 
     # Update panel Nginx configuration if present
     if [ -f "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" ] && [ -f /etc/nginx/sites-available/kodepreneur-panel.conf ]; then
         PANEL_PORT_DETECTED=$(grep -oP 'listen \K[0-9]+' /etc/nginx/sites-available/kodepreneur-panel.conf 2>/dev/null | head -1 || echo "8080")
-        sed "s/{{PANEL_PORT}}/${PANEL_PORT_DETECTED}/g" "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" > /etc/nginx/sites-available/kodepreneur-panel.conf
+        
+        # Detect active PHP socket fallback
+        PHP_SOCK="unix:/run/php/php8.4-fpm.sock"
+        if [ ! -S /run/php/php8.4-fpm.sock ] && [ -S /run/php/php8.3-fpm.sock ]; then
+            PHP_SOCK="unix:/run/php/php8.3-fpm.sock"
+        fi
+
+        sed "s/{{PANEL_PORT}}/${PANEL_PORT_DETECTED}/g" "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" | \
+        sed "s|unix:/run/php/php8.4-fpm.sock|${PHP_SOCK}|g" > /etc/nginx/sites-available/kodepreneur-panel.conf
     fi
 
     chown -R www-data:www-data "${PANEL_DIR}"
