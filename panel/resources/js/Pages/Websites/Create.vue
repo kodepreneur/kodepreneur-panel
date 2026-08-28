@@ -17,7 +17,27 @@ import {
     Trash2,
     Layers,
     Info,
+    Database,
+    Key,
+    RefreshCw,
+    Eye,
+    EyeOff,
+    Copy,
+    Check,
+    Terminal,
 } from 'lucide-vue-next';
+
+function generateRandomPassword() {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+    let pass = '';
+    for (let i = 0; i < 16; i++) {
+        pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return pass;
+}
+
+const showDbPassword = ref(false);
+const copiedDbPassword = ref(false);
 
 const form = useForm({
     domain: '',
@@ -30,18 +50,44 @@ const form = useForm({
     zip_file: null as File | null,
     auto_ssl: false,
     ssl_email: '',
+
+    // Database Creation
+    create_database: true,
+    db_engine: 'mysql' as 'mysql' | 'postgresql',
+    db_name: '',
+    db_username: '',
+    db_password: generateRandomPassword(),
+
+    // Laravel Automated Post-Setup
+    auto_setup_laravel: true,
+    setup_env: true,
+    run_composer: true,
+    run_key_generate: true,
+    run_migrations: true,
+    run_seeders: false,
+    run_npm_build: true,
+    run_optimize: true,
 });
 
 const isDragging = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
-function updateDocRoot() {
+function updateDomainDerivedFields() {
     if (!form.domain) return;
     const cleanDomain = form.domain.toLowerCase().trim();
+    const slug = cleanDomain.split('.')[0].replace(/[^a-zA-Z0-9_]/g, '_');
+
     if (form.project_type === 'laravel') {
         form.document_root = `/var/www/${cleanDomain}/public`;
     } else {
         form.document_root = `/var/www/${cleanDomain}`;
+    }
+
+    if (!form.db_name || form.db_name.startsWith('db_')) {
+        form.db_name = `db_${slug}`;
+    }
+    if (!form.db_username || form.db_username.startsWith('u_')) {
+        form.db_username = `u_${slug}`;
     }
 }
 
@@ -49,10 +95,31 @@ function setProjectType(type: 'laravel' | 'generic_php' | 'static') {
     form.project_type = type;
     if (type === 'static') {
         form.php_version = 'none';
-    } else if (form.php_version === 'none') {
-        form.php_version = '8.3';
+        form.create_database = false;
+        form.auto_setup_laravel = false;
+    } else {
+        if (form.php_version === 'none') {
+            form.php_version = '8.3';
+        }
+        if (type === 'laravel') {
+            form.create_database = true;
+            form.auto_setup_laravel = true;
+        }
     }
-    updateDocRoot();
+    updateDomainDerivedFields();
+}
+
+function regeneratePassword() {
+    form.db_password = generateRandomPassword();
+}
+
+function copyDbPassword() {
+    if (!form.db_password) return;
+    navigator.clipboard.writeText(form.db_password);
+    copiedDbPassword.value = true;
+    setTimeout(() => {
+        copiedDbPassword.value = false;
+    }, 2000);
 }
 
 function handleFileChange(event: Event) {
@@ -126,8 +193,8 @@ function submit() {
                             <Globe class="w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 v-model="form.domain"
-                                @input="updateDocRoot"
-                                @blur="updateDocRoot"
+                                @input="updateDomainDerivedFields"
+                                @blur="updateDomainDerivedFields"
                                 type="text"
                                 required
                                 placeholder="example.com"
@@ -491,6 +558,252 @@ function submit() {
                             Points to Laravel's <code class="text-brand-600 dark:text-brand-400 font-mono font-semibold">/public</code> folder or custom webroot directory.
                         </p>
                         <p v-if="form.errors.document_root" class="text-[11px] text-rose-500 mt-1.5">{{ form.errors.document_root }}</p>
+                    </div>
+
+                    <!-- Database Provisioning Card -->
+                    <div class="rounded-2xl border border-slate-200/80 dark:border-surface-800 bg-slate-50/50 dark:bg-surface-950/40 p-5 space-y-4">
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20 text-brand-600 dark:text-brand-400 mt-0.5">
+                                    <Database class="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <span>Create & Link Database</span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-brand-100 dark:bg-brand-500/20 text-brand-700 dark:text-brand-300">
+                                            Automated
+                                        </span>
+                                    </h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-surface-400 mt-0.5">
+                                        Provisions a dedicated database and database user with full grant access automatically.
+                                    </p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="form.create_database" class="sr-only peer" />
+                                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-surface-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-surface-600 peer-checked:bg-brand-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Database Fields -->
+                        <div v-if="form.create_database" class="pt-3 border-t border-slate-200/60 dark:border-surface-800/60 space-y-4">
+                            <!-- Engine Selector -->
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 dark:text-surface-300 mb-1.5">
+                                    Database Engine
+                                </label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <label
+                                        :class="[
+                                            'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                                            form.db_engine === 'mysql'
+                                                ? 'bg-white dark:bg-surface-900 border-brand-500 text-slate-900 dark:text-white ring-1 ring-brand-500 shadow-xs'
+                                                : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400'
+                                        ]"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+                                            <div>
+                                                <div class="text-xs font-bold font-mono">MySQL 8.0</div>
+                                                <div class="text-[10px] text-slate-400">Port 3306 (utf8mb4)</div>
+                                            </div>
+                                        </div>
+                                        <input type="radio" v-model="form.db_engine" value="mysql" class="sr-only" />
+                                        <CheckCircle2 v-if="form.db_engine === 'mysql'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                                    </label>
+
+                                    <label
+                                        :class="[
+                                            'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                                            form.db_engine === 'postgresql'
+                                                ? 'bg-white dark:bg-surface-900 border-brand-500 text-slate-900 dark:text-white ring-1 ring-brand-500 shadow-xs'
+                                                : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400'
+                                        ]"
+                                    >
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-2 h-2 rounded-full bg-sky-500"></div>
+                                            <div>
+                                                <div class="text-xs font-bold font-mono">PostgreSQL 16</div>
+                                                <div class="text-[10px] text-slate-400">Port 5432 (UTF8)</div>
+                                            </div>
+                                        </div>
+                                        <input type="radio" v-model="form.db_engine" value="postgresql" class="sr-only" />
+                                        <CheckCircle2 v-if="form.db_engine === 'postgresql'" class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Name & User Grid -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 dark:text-surface-300 mb-1">
+                                        Database Name
+                                    </label>
+                                    <input
+                                        v-model="form.db_name"
+                                        type="text"
+                                        required
+                                        placeholder="db_myapp"
+                                        class="w-full px-3 py-2 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition"
+                                    />
+                                    <p v-if="form.errors.db_name" class="text-[10px] text-rose-500 mt-1">{{ form.errors.db_name }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-700 dark:text-surface-300 mb-1">
+                                        Database Username
+                                    </label>
+                                    <input
+                                        v-model="form.db_username"
+                                        type="text"
+                                        required
+                                        placeholder="u_myapp"
+                                        class="w-full px-3 py-2 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition"
+                                    />
+                                    <p v-if="form.errors.db_username" class="text-[10px] text-rose-500 mt-1">{{ form.errors.db_username }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Password with Generator -->
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-700 dark:text-surface-300 mb-1 flex items-center justify-between">
+                                    <span>Database Password</span>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            @click="regeneratePassword"
+                                            class="text-[10px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium"
+                                        >
+                                            <RefreshCw class="w-3 h-3" />
+                                            <span>Generate New</span>
+                                        </button>
+                                        <span class="text-slate-300 dark:text-surface-700">•</span>
+                                        <button
+                                            type="button"
+                                            @click="copyDbPassword"
+                                            class="text-[10px] text-slate-600 dark:text-surface-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 font-medium"
+                                        >
+                                            <component :is="copiedDbPassword ? Check : Copy" class="w-3 h-3 text-emerald-500" />
+                                            <span>{{ copiedDbPassword ? 'Copied!' : 'Copy' }}</span>
+                                        </button>
+                                    </div>
+                                </label>
+                                <div class="relative">
+                                    <Key class="w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                                    <input
+                                        v-model="form.db_password"
+                                        :type="showDbPassword ? 'text' : 'password'"
+                                        required
+                                        class="w-full pl-9 pr-10 py-2 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white font-mono placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition"
+                                    />
+                                    <button
+                                        type="button"
+                                        @click="showDbPassword = !showDbPassword"
+                                        class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                                    >
+                                        <component :is="showDbPassword ? EyeOff : Eye" class="w-3.5 h-3.5" />
+                                    </button>
+                                </div>
+                                <p class="text-[10px] text-slate-500 dark:text-surface-400 mt-1">
+                                    These credentials will be injected directly into your Laravel <code class="font-mono text-brand-600 dark:text-brand-400 font-semibold">.env</code> configuration.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Laravel Automated Post-Setup Pipeline (Visible for Laravel) -->
+                    <div
+                        v-if="form.project_type === 'laravel'"
+                        class="rounded-2xl border border-rose-200/80 dark:border-rose-900/30 bg-rose-50/40 dark:bg-rose-950/10 p-5 space-y-4"
+                    >
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-start gap-3">
+                                <div class="p-2 rounded-xl bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 mt-0.5">
+                                    <Sparkles class="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                        <span>Laravel Automated Zero-SSH Setup</span>
+                                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-100 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300">
+                                            1-Click Provisioning
+                                        </span>
+                                    </h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-surface-400 mt-0.5">
+                                        Automatically executes all necessary build, migration, and dependency tasks so your app is immediately live without touching the terminal.
+                                    </p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" v-model="form.auto_setup_laravel" class="sr-only peer" />
+                                <div class="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-surface-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-surface-600 peer-checked:bg-rose-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Pipeline Options Checklist -->
+                        <div v-if="form.auto_setup_laravel" class="pt-3 border-t border-rose-200/60 dark:border-rose-900/20 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <!-- Option 1: .env configuration -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.setup_env" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">Configure .env</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Sync database credentials, APP_URL, and production settings.</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 2: Composer Install -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.run_composer" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">composer install</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Install PHP packages with optimized autoloader (--no-dev).</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 3: Key Generate -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.run_key_generate" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">php artisan key:generate</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Generate secure Laravel APP_KEY encryption key.</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 4: Migrate -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.run_migrations" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">php artisan migrate</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Run database migrations on the newly created database.</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 5: Seeders -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.run_seeders" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">php artisan db:seed</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Seed database with initial data / demo records.</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 6: NPM Build -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition">
+                                <input type="checkbox" v-model="form.run_npm_build" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">npm install & build</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Compile frontend assets (Vite / Tailwind / Vue / React).</span>
+                                </div>
+                            </label>
+
+                            <!-- Option 7: Optimize -->
+                            <label class="flex items-start gap-2.5 p-2.5 rounded-xl bg-white dark:bg-surface-900/80 border border-slate-200/80 dark:border-surface-800 cursor-pointer hover:border-slate-300 dark:hover:border-surface-700 transition sm:col-span-2">
+                                <input type="checkbox" v-model="form.run_optimize" class="mt-0.5 rounded border-slate-300 text-rose-600 focus:ring-rose-500" />
+                                <div>
+                                    <span class="text-xs font-semibold text-slate-800 dark:text-surface-200 block">php artisan optimize</span>
+                                    <span class="text-[10px] text-slate-500 dark:text-surface-400">Cache configuration, routes, and views for production speed.</span>
+                                </div>
+                            </label>
+                        </div>
                     </div>
 
                     <!-- Automated SSL Option -->

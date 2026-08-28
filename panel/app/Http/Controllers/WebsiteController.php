@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Database;
+use App\Models\DatabaseAccess;
+use App\Models\DatabaseUser;
 use App\Models\Deployment;
 use App\Models\Domain;
 use App\Models\SslCertificate;
@@ -59,6 +62,23 @@ class WebsiteController extends Controller
             'aliases.*' => ['string', 'max:255'],
             'auto_ssl' => ['nullable', 'boolean'],
             'ssl_email' => ['nullable', 'email'],
+
+            // Database Creation
+            'create_database' => ['nullable', 'boolean'],
+            'db_engine' => ['nullable', 'string', 'in:mysql,postgresql'],
+            'db_name' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
+            'db_username' => ['nullable', 'string', 'max:64', 'regex:/^[a-zA-Z0-9_]+$/'],
+            'db_password' => ['nullable', 'string', 'min:8'],
+
+            // Laravel Automated Setup
+            'auto_setup_laravel' => ['nullable', 'boolean'],
+            'setup_env' => ['nullable', 'boolean'],
+            'run_composer' => ['nullable', 'boolean'],
+            'run_key_generate' => ['nullable', 'boolean'],
+            'run_migrations' => ['nullable', 'boolean'],
+            'run_seeders' => ['nullable', 'boolean'],
+            'run_npm_build' => ['nullable', 'boolean'],
+            'run_optimize' => ['nullable', 'boolean'],
         ]);
 
         $domain = strtolower($validated['domain']);
@@ -66,7 +86,8 @@ class WebsiteController extends Controller
         $projectType = $validated['project_type'] ?? 'laravel';
         $gitRepo = $validated['git_repository'] ?? null;
         $gitBranch = !empty($validated['git_branch']) ? $validated['git_branch'] : 'main';
-        $systemUser = 'kp_' . Str::slug(explode('.', $domain)[0], '_');
+        $domainSlug = Str::slug(explode('.', $domain)[0], '_');
+        $systemUser = 'kp_' . $domainSlug;
         $aliases = $validated['aliases'] ?? [];
 
         // Auto document root determination
@@ -88,8 +109,99 @@ class WebsiteController extends Controller
             $fullZipPath = Storage::disk('local')->path($tempZipPath);
         }
 
+        // Database Provisioning variables
+        $dbName = null;
+        $dbUsername = null;
+        $dbPassword = null;
+        $dbEngine = $validated['db_engine'] ?? 'mysql';
+
         try {
-            // 1. Provision on server via Agent
+            // 1. Provision Database if requested
+            if (!empty($validated['create_database'])) {
+                $dbName = strtolower($validated['db_name'] ?? ('db_' . $domainSlug));
+                $dbUsername = strtolower($validated['db_username'] ?? ('u_' . $domainSlug));
+                $dbPassword = $validated['db_password'] ?: Str::password(16);
+                $charset = $dbEngine === 'mysql' ? 'utf8mb4' : 'UTF8';
+                $collation = $dbEngine === 'mysql' ? 'utf8mb4_unicode_ci' : 'en_US.UTF-8';
+
+                // Provision on server via Agent
+                $this->agentClient->createDatabase([
+                    'engine' => $dbEngine,
+                    'name' => $dbName,
+                    'charset' => $charset,
+                    'collation' => $collation,
+                ]);
+
+                $this->agentClient->createDatabaseUser([
+                    'engine' => $dbEngine,
+                    'username' => $dbUsername,
+                    'host' => 'localhost',
+                    'password' => $dbPassword,
+                ]);
+
+                $this->agentClient->grantDatabaseAccess([
+                    'engine' => $dbEngine,
+                    'database' => $dbName,
+                    'username' => $dbUsername,
+                    'host' => 'localhost',
+                    'permissions' => 'all',
+                ]);
+
+                // Save to local database records
+                $dbRecord = Database::create([
+                    'engine' => $dbEngine,
+                    'name' => $dbName,
+                    'character_set' => $charset,
+                    'collation' => $collation,
+                ]);
+
+                $dbUserRecord = DatabaseUser::create([
+                    'engine' => $dbEngine,
+                    'username' => $dbUsername,
+                    'host' => 'localhost',
+                ]);
+
+                DatabaseAccess::create([
+                    'database_id' => $dbRecord->id,
+                    'database_user_id' => $dbUserRecord->id,
+                    'permissions' => 'all',
+                ]);
+            }
+
+            // 2. Prepare Laravel Automated Post-Setup configuration
+            $laravelSetup = null;
+            if ($projectType === 'laravel' && ($validated['auto_setup_laravel'] ?? true)) {
+                $scheme = !empty($validated['auto_ssl']) ? 'https' : 'http';
+                $envVars = [
+                    'APP_NAME' => ucfirst(explode('.', $domain)[0]),
+                    'APP_ENV' => 'production',
+                    'APP_DEBUG' => 'false',
+                    'APP_URL' => "{$scheme}://{$domain}",
+                ];
+
+                if (!empty($validated['create_database']) && !empty($dbName)) {
+                    $envVars['DB_CONNECTION'] = $dbEngine === 'postgresql' ? 'pgsql' : 'mysql';
+                    $envVars['DB_HOST'] = '127.0.0.1';
+                    $envVars['DB_PORT'] = $dbEngine === 'postgresql' ? '5432' : '3306';
+                    $envVars['DB_DATABASE'] = $dbName;
+                    $envVars['DB_USERNAME'] = $dbUsername;
+                    $envVars['DB_PASSWORD'] = $dbPassword;
+                }
+
+                $laravelSetup = [
+                    'enabled' => true,
+                    'setup_env' => $validated['setup_env'] ?? true,
+                    'env_vars' => $envVars,
+                    'run_composer' => $validated['run_composer'] ?? true,
+                    'run_key_generate' => $validated['run_key_generate'] ?? true,
+                    'run_migrations' => $validated['run_migrations'] ?? true,
+                    'run_seeders' => $validated['run_seeders'] ?? false,
+                    'run_npm_build' => $validated['run_npm_build'] ?? true,
+                    'run_optimize' => $validated['run_optimize'] ?? true,
+                ];
+            }
+
+            // 3. Provision Virtual Host on server via Agent
             $agentPayload = [
                 'domain' => $domain,
                 'aliases' => $aliases,
@@ -101,6 +213,7 @@ class WebsiteController extends Controller
                 'project_type' => $projectType,
                 'git_repository' => $gitRepo,
                 'git_branch' => $gitBranch,
+                'laravel_setup' => $laravelSetup,
             ];
 
             if (!empty($fullZipPath) && file_exists($fullZipPath)) {
@@ -112,7 +225,7 @@ class WebsiteController extends Controller
                 $docRoot = $agentRes['document_root'];
             }
 
-            // 2. Persist Website record
+            // 4. Persist Website record
             $website = Website::create([
                 'domain' => $domain,
                 'aliases' => $aliases,
@@ -129,7 +242,7 @@ class WebsiteController extends Controller
                 'last_deployed_at' => in_array($deploymentSource, ['zip', 'git']) ? now() : null,
             ]);
 
-            // 3. Create Primary Domain record
+            // 5. Create Primary Domain record
             Domain::create([
                 'website_id' => $website->id,
                 'domain' => $domain,
@@ -137,8 +250,20 @@ class WebsiteController extends Controller
                 'ssl_status' => 'pending',
             ]);
 
-            // 4. Initial Deployment record if Git source
-            if ($deploymentSource === 'git' && !empty($gitRepo)) {
+            // 6. Record Setup / Deployment Output Logs
+            $setupResult = $agentRes['setup_result'] ?? null;
+            if (!empty($setupResult) && !empty($setupResult['log_output'])) {
+                Deployment::create([
+                    'website_id' => $website->id,
+                    'branch' => $gitBranch,
+                    'status' => ($setupResult['success'] ?? true) ? 'success' : 'failed',
+                    'trigger_source' => 'manual',
+                    'commit_message' => 'Automated initial Laravel provisioning & setup',
+                    'log_output' => $setupResult['log_output'],
+                    'duration_seconds' => $setupResult['duration_seconds'] ?? 1,
+                    'initiated_by_user_id' => $request->user()->id,
+                ]);
+            } elseif ($deploymentSource === 'git' && !empty($gitRepo)) {
                 Deployment::create([
                     'website_id' => $website->id,
                     'branch' => $gitBranch,
@@ -151,7 +276,7 @@ class WebsiteController extends Controller
                 ]);
             }
 
-            // 5. Auto-issue SSL if requested
+            // 7. Auto-issue SSL if requested
             if (!empty($validated['auto_ssl'])) {
                 try {
                     $email = $validated['ssl_email'] ?: $request->user()->email;

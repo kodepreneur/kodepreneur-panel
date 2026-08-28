@@ -195,4 +195,57 @@ func TestWebsiteDeploymentSources(t *testing.T) {
 	if zipResp.Data.DocumentRoot != "/var/www/zip-site.com" {
 		t.Errorf("Expected document_root to be /var/www/zip-site.com, got %s", zipResp.Data.DocumentRoot)
 	}
+
+	// 3. Create Laravel site with automated post-setup and .env
+	laravelPayload := []byte(`{
+		"domain": "laravel-app.com",
+		"php_version": "8.4",
+		"deployment_source": "empty",
+		"project_type": "laravel",
+		"laravel_setup": {
+			"enabled": true,
+			"setup_env": true,
+			"env_vars": {
+				"APP_NAME": "MyShop",
+				"DB_CONNECTION": "mysql",
+				"DB_DATABASE": "db_myshop",
+				"DB_USERNAME": "u_myshop",
+				"DB_PASSWORD": "secretpassword123"
+			},
+			"run_composer": true,
+			"run_key_generate": true,
+			"run_migrations": true,
+			"run_npm_build": true,
+			"run_optimize": true
+		}
+	}`)
+	req = httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(laravelPayload))
+	signRequest(req, laravelPayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for Laravel automated setup website, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var laravelResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			DocumentRoot string `json:"document_root"`
+			IsLaravel    bool   `json:"is_laravel"`
+			SetupResult  *struct {
+				Success   bool   `json:"success"`
+				LogOutput string `json:"log_output"`
+			} `json:"setup_result"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&laravelResp); err != nil {
+		t.Fatalf("Failed to decode laravel response: %v", err)
+	}
+	if !laravelResp.Data.IsLaravel {
+		t.Errorf("Expected is_laravel to be true")
+	}
+	if laravelResp.Data.SetupResult == nil || !laravelResp.Data.SetupResult.Success {
+		t.Errorf("Expected setup_result to be successful")
+	}
 }

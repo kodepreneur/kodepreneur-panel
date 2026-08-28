@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -247,6 +249,17 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		ProjectType      string   `json:"project_type"` // "laravel", "generic_php", "static", "auto"
 		ZipBase64        string   `json:"zip_base64"`
 		ZipPath          string   `json:"zip_path"`
+		LaravelSetup     *struct {
+			Enabled        bool              `json:"enabled"`
+			SetupEnv       bool              `json:"setup_env"`
+			EnvVars        map[string]string `json:"env_vars"`
+			RunComposer    bool              `json:"run_composer"`
+			RunKeyGenerate bool              `json:"run_key_generate"`
+			RunMigrations  bool              `json:"run_migrations"`
+			RunSeeders     bool              `json:"run_seeders"`
+			RunNpmBuild    bool              `json:"run_npm_build"`
+			RunOptimize    bool              `json:"run_optimize"`
+		} `json:"laravel_setup"`
 	}
 
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
@@ -345,6 +358,49 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// 4. Automated Laravel Post-Setup (Env & Build Commands)
+	var setupResult *git.DeploymentResult
+	if isLaravel && payload.LaravelSetup != nil && payload.LaravelSetup.Enabled {
+		if payload.LaravelSetup.SetupEnv && len(payload.LaravelSetup.EnvVars) > 0 {
+			_ = configureLaravelEnv(realBaseDir, payload.LaravelSetup.EnvVars, payload.SystemUser)
+		}
+
+		var setupCommands []string
+		if payload.LaravelSetup.RunComposer {
+			setupCommands = append(setupCommands, "if [ -f composer.json ]; then composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction; fi")
+		}
+		if payload.LaravelSetup.RunKeyGenerate {
+			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan key:generate --force; fi")
+		}
+		if payload.LaravelSetup.RunMigrations {
+			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan migrate --force; fi")
+		}
+		if payload.LaravelSetup.RunSeeders {
+			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan db:seed --force; fi")
+		}
+		if payload.LaravelSetup.RunNpmBuild {
+			setupCommands = append(setupCommands, "if [ -f package.json ]; then npm install --silent 2>/dev/null || npm install; npm run build; fi")
+		}
+		if payload.LaravelSetup.RunOptimize {
+			setupCommands = append(setupCommands, "if [ -f artisan ]; then php artisan optimize:clear; php artisan config:cache; php artisan route:cache; php artisan view:cache; fi")
+		}
+		setupCommands = append(setupCommands, "mkdir -p storage/framework/{sessions,views,cache} bootstrap/cache")
+		setupCommands = append(setupCommands, "chmod -R 775 storage bootstrap/cache 2>/dev/null || true")
+
+		if len(setupCommands) > 0 {
+			res, err := r.gitRunner.Execute(git.DeploymentRequest{
+				SystemUser: payload.SystemUser,
+				WorkingDir: realBaseDir,
+				Branch:     payload.GitBranch,
+				Commands:   setupCommands,
+				TimeoutSec: 600,
+			})
+			if err == nil {
+				setupResult = res
+			}
+		}
+	}
+
 	if payload.PhpVersion != "none" {
 		poolCfg := phpfpm.PoolConfig{
 			Domain:       payload.Domain,
@@ -387,8 +443,64 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 			"php_version":       payload.PhpVersion,
 			"deployment_source": payload.DeploymentSource,
 			"is_laravel":        isLaravel,
+			"setup_result":      setupResult,
 		},
 	})
+}
+
+// configureLaravelEnv creates or updates .env file with given key-value mappings.
+func configureLaravelEnv(baseDir string, envVars map[string]string, systemUser string) error {
+	envPath := filepath.Join(baseDir, ".env")
+	examplePath := filepath.Join(baseDir, ".env.example")
+
+	var envContent string
+	if data, err := os.ReadFile(envPath); err == nil {
+		envContent = string(data)
+	} else if data, err := os.ReadFile(examplePath); err == nil {
+		envContent = string(data)
+	} else {
+		envContent = "APP_NAME=Laravel\nAPP_ENV=production\nAPP_KEY=\nAPP_DEBUG=false\nAPP_URL=http://localhost\n\nLOG_CHANNEL=stack\nLOG_DEPRECATIONS_CHANNEL=null\nLOG_LEVEL=debug\n\nDB_CONNECTION=mysql\nDB_HOST=127.0.0.1\nDB_PORT=3306\nDB_DATABASE=laravel\nDB_USERNAME=root\nDB_PASSWORD=\n\nBROADCAST_DRIVER=log\nCACHE_DRIVER=file\nFILESYSTEM_DISK=local\nQUEUE_CONNECTION=sync\nSESSION_DRIVER=file\nSESSION_LIFETIME=120\n"
+	}
+
+	lines := strings.Split(envContent, "\n")
+	foundKeys := make(map[string]bool)
+
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") || !strings.Contains(trimmed, "=") {
+			continue
+		}
+		parts := strings.SplitN(trimmed, "=", 2)
+		key := strings.TrimSpace(parts[0])
+		if val, ok := envVars[key]; ok {
+			if strings.Contains(val, " ") && !strings.HasPrefix(val, "\"") {
+				val = fmt.Sprintf("\"%s\"", val)
+			}
+			lines[i] = fmt.Sprintf("%s=%s", key, val)
+			foundKeys[key] = true
+		}
+	}
+
+	for k, v := range envVars {
+		if !foundKeys[k] {
+			if strings.Contains(v, " ") && !strings.HasPrefix(v, "\"") {
+				v = fmt.Sprintf("\"%s\"", v)
+			}
+			lines = append(lines, fmt.Sprintf("%s=%s", k, v))
+		}
+	}
+
+	finalContent := strings.Join(lines, "\n")
+	if err := os.WriteFile(envPath, []byte(finalContent), 0640); err != nil {
+		return err
+	}
+
+	if runtime.GOOS == "linux" {
+		_ = exec.Command("chown", fmt.Sprintf("%s:www-data", systemUser), envPath).Run()
+		_ = exec.Command("chmod", "0640", envPath).Run()
+	}
+
+	return nil
 }
 
 // handleWebsiteSubroutes routes /api/v1/websites/{domain} and /api/v1/websites/{domain}/*
