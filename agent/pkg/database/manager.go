@@ -95,3 +95,39 @@ func (m *Manager) ChangePassword(engine, username, host, newPassword string) err
 		return fmt.Errorf("unsupported database engine: %s", engine)
 	}
 }
+
+// ListTables returns metadata for all tables in a given database.
+func (m *Manager) ListTables(engine, database string) ([]TableInfo, error) {
+	switch strings.ToLower(engine) {
+	case "mysql", "mariadb":
+		return m.mysql.ListTables(database)
+	case "postgres", "postgresql":
+		return m.postgres.ListTables(database)
+	default:
+		return nil, fmt.Errorf("unsupported database engine: %s", engine)
+	}
+}
+
+// GetTableStructure returns full column, index, and constraint schema for a table.
+func (m *Manager) GetTableStructure(engine, database, table string) (*TableStructure, error) {
+	switch strings.ToLower(engine) {
+	case "mysql", "mariadb":
+		return m.mysql.GetTableStructure(database, table)
+	case "postgres", "postgresql":
+		return m.postgres.GetTableStructure(database, table)
+	default:
+		return nil, fmt.Errorf("unsupported database engine: %s", engine)
+	}
+}
+
+// GetTableData returns paginated rows from a table.
+func (m *Manager) GetTableData(engine, database, table string, page, perPage int, sortField, sortDirection, search, searchColumn string) (*TableDataResult, error) {
+	switch strings.ToLower(engine) {
+	case "mysql", "mariadb":
+		return m.mysql.GetTableData(database, table, page, perPage, sortField, sortDirection, search, searchColumn)
+	case "postgres", "postgresql":
+		return m.postgres.GetTableData(database, table, page, perPage, sortField, sortDirection, search, searchColumn)
+	default:
+		return nil, fmt.Errorf("unsupported database engine: %s", engine)
+	}
+}

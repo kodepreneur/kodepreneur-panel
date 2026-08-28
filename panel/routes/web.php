@@ -41,6 +41,10 @@ Route::middleware('auth')->group(function () {
 
     // Databases
     Route::resource('databases', DatabaseController::class)->only(['index', 'store', 'destroy']);
+    Route::get('/databases/{database}/explorer', [DatabaseController::class, 'explorer'])->name('databases.explorer');
+    Route::get('/databases/{database}/tables', [DatabaseController::class, 'tables'])->name('databases.tables');
+    Route::get('/databases/{database}/tables/{table}/structure', [DatabaseController::class, 'tableStructure'])->name('databases.tables.structure');
+    Route::get('/databases/{database}/tables/{table}/data', [DatabaseController::class, 'tableData'])->name('databases.tables.data');
     Route::post('/databases/users', [DatabaseController::class, 'storeUser'])->name('databases.users.store');
     Route::delete('/databases/users/{databaseUser}', [DatabaseController::class, 'destroyUser'])->name('databases.users.destroy');
     Route::post('/databases/users/{databaseUser}/password', [DatabaseController::class, 'resetPassword'])->name('databases.users.password');

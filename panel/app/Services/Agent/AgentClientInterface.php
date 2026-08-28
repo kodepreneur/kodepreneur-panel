@@ -85,6 +85,21 @@ interface AgentClientInterface
     public function resetDatabaseUserPassword(array $payload): array;
 
     /**
+     * Get tables and metadata for a database.
+     */
+    public function getDatabaseTables(string $engine, string $name): array;
+
+    /**
+     * Get column structure, indexes, and constraints for a table.
+     */
+    public function getTableStructure(string $engine, string $name, string $table): array;
+
+    /**
+     * Get paginated table rows and headers.
+     */
+    public function getTableData(string $engine, string $name, string $table, array $params = []): array;
+
+    /**
      * Execute an unprivileged git deployment and build pipeline.
      */
     public function executeDeployment(array $payload): array;

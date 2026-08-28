@@ -8,6 +8,7 @@ use App\Models\DatabaseAccess;
 use App\Models\DatabaseUser;
 use App\Services\Agent\AgentClientInterface;
 use Exception;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -320,5 +321,82 @@ class DatabaseController extends Controller
         ]);
 
         return redirect()->route('databases.index')->with('success', "Database {$name} dropped successfully.");
+    }
+
+    public function explorer(Request $request, Database $database): Response
+    {
+        $allDatabases = Database::select('id', 'name', 'engine', 'character_set', 'collation')
+            ->orderBy('name')
+            ->get();
+
+        $initialTables = [];
+        try {
+            $initialTables = $this->agentClient->getDatabaseTables($database->engine, $database->name);
+        } catch (Exception $e) {
+            // Non-fatal, frontend will handle error state
+        }
+
+        return Inertia::render('Databases/Explorer', [
+            'currentDatabase' => $database,
+            'allDatabases' => $allDatabases,
+            'initialTables' => $initialTables,
+        ]);
+    }
+
+    public function tables(Request $request, Database $database): JsonResponse
+    {
+        try {
+            $tables = $this->agentClient->getDatabaseTables($database->engine, $database->name);
+            return response()->json([
+                'success' => true,
+                'tables' => $tables,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function tableStructure(Request $request, Database $database, string $table): JsonResponse
+    {
+        try {
+            $structure = $this->agentClient->getTableStructure($database->engine, $database->name, $table);
+            return response()->json([
+                'success' => true,
+                'structure' => $structure,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function tableData(Request $request, Database $database, string $table): JsonResponse
+    {
+        try {
+            $params = [
+                'page' => $request->query('page', 1),
+                'per_page' => $request->query('per_page', 50),
+                'sort' => $request->query('sort', ''),
+                'direction' => $request->query('direction', 'asc'),
+                'search' => $request->query('search', ''),
+                'search_column' => $request->query('search_column', ''),
+            ];
+
+            $data = $this->agentClient->getTableData($database->engine, $database->name, $table, $params);
+            return response()->json([
+                'success' => true,
+                'data' => $data,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

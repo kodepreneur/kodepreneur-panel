@@ -439,6 +439,7 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 			SystemUser:   payload.SystemUser,
 			PhpVersion:   payload.PhpVersion,
 			DocumentRoot: payload.DocumentRoot,
+			BaseDir:      baseDir,
 		}
 		if _, err := r.phpManager.CreatePool(poolCfg); err != nil {
 			respondError(w, http.StatusInternalServerError, "PHP_POOL_FAILED", err.Error())
@@ -586,11 +587,17 @@ func (r *Router) handleWebsiteSubroutes(w http.ResponseWriter, req *http.Request
 			return
 		}
 
+		baseDir := fmt.Sprintf("/var/www/%s", domain)
+		if payload.DocumentRoot != "" && strings.HasSuffix(payload.DocumentRoot, "/public") {
+			baseDir = filepath.Dir(payload.DocumentRoot)
+		}
+
 		poolCfg := phpfpm.PoolConfig{
 			Domain:       domain,
 			SystemUser:   payload.SystemUser,
 			PhpVersion:   payload.NewPhpVersion,
 			DocumentRoot: payload.DocumentRoot,
+			BaseDir:      baseDir,
 		}
 		if err := r.phpManager.SwitchVersion(poolCfg, payload.OldPhpVersion); err != nil {
 			respondError(w, http.StatusInternalServerError, "PHP_SWITCH_FAILED", err.Error())
@@ -855,6 +862,75 @@ func (r *Router) handleDatabaseSubroutes(w http.ResponseWriter, req *http.Reques
 		respondJSON(w, http.StatusOK, map[string]any{
 			"success": true,
 			"message": fmt.Sprintf("User %s dropped successfully", username),
+		})
+		return
+	}
+
+	// GET /api/v1/databases/{engine}/{name}/tables
+	if len(parts) == 3 && parts[2] == "tables" && req.Method == http.MethodGet {
+		engine := parts[0]
+		name := parts[1]
+
+		tables, err := r.dbManager.ListTables(engine, name)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "TABLES_FETCH_FAILED", err.Error())
+			return
+		}
+
+		respondJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"data":    tables,
+		})
+		return
+	}
+
+	// GET /api/v1/databases/{engine}/{name}/tables/{table}/structure
+	if len(parts) == 5 && parts[2] == "tables" && parts[4] == "structure" && req.Method == http.MethodGet {
+		engine := parts[0]
+		name := parts[1]
+		table := parts[3]
+
+		structure, err := r.dbManager.GetTableStructure(engine, name, table)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "STRUCTURE_FETCH_FAILED", err.Error())
+			return
+		}
+
+		respondJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"data":    structure,
+		})
+		return
+	}
+
+	// GET /api/v1/databases/{engine}/{name}/tables/{table}/data
+	if len(parts) == 5 && parts[2] == "tables" && parts[4] == "data" && req.Method == http.MethodGet {
+		engine := parts[0]
+		name := parts[1]
+		table := parts[3]
+
+		page, _ := strconv.Atoi(req.URL.Query().Get("page"))
+		if page < 1 {
+			page = 1
+		}
+		perPage, _ := strconv.Atoi(req.URL.Query().Get("per_page"))
+		if perPage < 1 {
+			perPage = 50
+		}
+		sortField := req.URL.Query().Get("sort")
+		sortDirection := req.URL.Query().Get("direction")
+		search := req.URL.Query().Get("search")
+		searchColumn := req.URL.Query().Get("search_column")
+
+		dataResult, err := r.dbManager.GetTableData(engine, name, table, page, perPage, sortField, sortDirection, search, searchColumn)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "DATA_FETCH_FAILED", err.Error())
+			return
+		}
+
+		respondJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"data":    dataResult,
 		})
 		return
 	}

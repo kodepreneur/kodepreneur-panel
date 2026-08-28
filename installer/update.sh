@@ -129,6 +129,14 @@ if [ -d "${PANEL_DIR}" ]; then
             fi
         fi
     done
+
+    # Fix open_basedir in existing website PHP-FPM pools (/var/www/domain/public -> /var/www/domain)
+    for POOL_CONF in /etc/php/*/fpm/pool.d/kp_*.conf; do
+        if [ -f "${POOL_CONF}" ]; then
+            sed -i 's|\(/var/www/[^/:]*\)/public|\1|g' "${POOL_CONF}"
+        fi
+    done
+
     # Restart PHP-FPM runtimes to apply configuration & ensure sockets are alive
     echo -e "${COLOR_BLUE}  - Restarting PHP-FPM runtimes...${COLOR_RESET}"
     systemctl restart php8.4-fpm php8.3-fpm 2>/dev/null || true

@@ -14,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Agent\AgentClientInterface::class, function () {
             $useMock = config('services.agent.use_mock', false);
 
-            if ($useMock) {
+            if ($useMock || app()->environment('testing')) {
                 return new \App\Services\Agent\MockAgentClient();
             }
 

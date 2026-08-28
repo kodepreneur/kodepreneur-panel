@@ -108,6 +108,26 @@ class HttpAgentClient implements AgentClientInterface
         return $res ?? [];
     }
 
+    public function getDatabaseTables(string $engine, string $name): array
+    {
+        $res = $this->request('GET', "/api/v1/databases/{$engine}/{$name}/tables");
+        return $res['data'] ?? [];
+    }
+
+    public function getTableStructure(string $engine, string $name, string $table): array
+    {
+        $res = $this->request('GET', "/api/v1/databases/{$engine}/{$name}/tables/{$table}/structure");
+        return $res['data'] ?? [];
+    }
+
+    public function getTableData(string $engine, string $name, string $table, array $params = []): array
+    {
+        $queryString = http_build_query($params);
+        $url = "/api/v1/databases/{$engine}/{$name}/tables/{$table}/data" . ($queryString ? "?{$queryString}" : '');
+        $res = $this->request('GET', $url);
+        return $res['data'] ?? [];
+    }
+
     public function executeDeployment(array $payload): array
     {
         $res = $this->request('POST', '/api/v1/deployments/execute', $payload, 600);

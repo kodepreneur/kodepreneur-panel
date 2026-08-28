@@ -80,7 +80,47 @@ func TestDatabaseEndpoints(t *testing.T) {
 		t.Fatalf("Expected 200 OK for password reset, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// 5. DELETE /api/v1/databases/users/mysql/ecom_user
+	// 5. GET /api/v1/databases/mysql/ecommerce_prod/tables (List Tables)
+	req = httptest.NewRequest("GET", "/api/v1/databases/mysql/ecommerce_prod/tables", nil)
+	signRequest(req, nil, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for list tables, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 6. GET /api/v1/databases/mysql/ecommerce_prod/tables/orders/structure (Table Structure)
+	req = httptest.NewRequest("GET", "/api/v1/databases/mysql/ecommerce_prod/tables/orders/structure", nil)
+	signRequest(req, nil, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for table structure, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 7. GET /api/v1/databases/mysql/ecommerce_prod/tables/orders/data (Table Data)
+	req = httptest.NewRequest("GET", "/api/v1/databases/mysql/ecommerce_prod/tables/orders/data?page=1&per_page=10", nil)
+	signRequest(req, nil, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for table data, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 8. GET /api/v1/databases/postgres/app_pg/tables (Postgres List Tables)
+	req = httptest.NewRequest("GET", "/api/v1/databases/postgres/app_pg/tables", nil)
+	signRequest(req, nil, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for postgres list tables, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 9. DELETE /api/v1/databases/users/mysql/ecom_user
 	req = httptest.NewRequest("DELETE", "/api/v1/databases/users/mysql/ecom_user?host=localhost", nil)
 	signRequest(req, nil, cfg.Security.SecretKey)
 	rec = httptest.NewRecorder()
@@ -90,7 +130,7 @@ func TestDatabaseEndpoints(t *testing.T) {
 		t.Fatalf("Expected 200 OK for user delete, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	// 6. DELETE /api/v1/databases/mysql/ecommerce_prod
+	// 10. DELETE /api/v1/databases/mysql/ecommerce_prod
 	req = httptest.NewRequest("DELETE", "/api/v1/databases/mysql/ecommerce_prod", nil)
 	signRequest(req, nil, cfg.Security.SecretKey)
 	rec = httptest.NewRecorder()

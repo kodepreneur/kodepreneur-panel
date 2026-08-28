@@ -33,6 +33,9 @@ func TestPoolLifecycle(t *testing.T) {
 	if !strings.Contains(content, "listen = /run/php/php8.3-fpm-kp_test_dev.sock") {
 		t.Errorf("Expected socket path in pool config, got:\n%s", content)
 	}
+	if !strings.Contains(content, "php_admin_value[open_basedir] = /var/www/test-domain.dev:/tmp:/var/tmp") {
+		t.Errorf("Expected open_basedir to contain /var/www/test-domain.dev, got:\n%s", content)
+	}
 
 	// Test Switch Version
 	cfg.PhpVersion = "8.4"

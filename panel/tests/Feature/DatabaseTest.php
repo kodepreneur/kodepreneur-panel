@@ -178,4 +178,104 @@ class DatabaseTest extends TestCase
             'action' => 'database.delete',
         ]);
     }
+
+    public function test_user_can_view_database_explorer(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $db = Database::create([
+            'engine' => 'mysql',
+            'name' => 'shop_analytics',
+            'character_set' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+
+        $response = $this->actingAs($user)->get("/databases/{$db->id}/explorer");
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('Databases/Explorer')
+            ->has('currentDatabase')
+            ->has('allDatabases')
+            ->has('initialTables')
+        );
+    }
+
+    public function test_user_can_fetch_database_tables_json(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $db = Database::create([
+            'engine' => 'mysql',
+            'name' => 'shop_analytics',
+            'character_set' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/databases/{$db->id}/tables");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'tables' => [
+                '*' => ['name', 'type', 'engine', 'rows', 'total_size'],
+            ],
+        ]);
+    }
+
+    public function test_user_can_fetch_table_structure_json(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $db = Database::create([
+            'engine' => 'mysql',
+            'name' => 'shop_analytics',
+            'character_set' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/databases/{$db->id}/tables/orders/structure");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'structure' => [
+                'table_name',
+                'columns' => [
+                    '*' => ['name', 'type', 'is_nullable', 'key'],
+                ],
+                'indexes',
+                'foreign_keys',
+                'create_statement',
+            ],
+        ]);
+    }
+
+    public function test_user_can_fetch_table_data_json(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $db = Database::create([
+            'engine' => 'mysql',
+            'name' => 'shop_analytics',
+            'character_set' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/databases/{$db->id}/tables/orders/data?page=1&per_page=10");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'data' => [
+                'table_name',
+                'columns',
+                'rows',
+                'total_rows',
+                'page',
+                'per_page',
+                'total_pages',
+            ],
+        ]);
+    }
 }

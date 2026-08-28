@@ -139,6 +139,64 @@ export interface DatabaseRecord {
     created_at: string;
 }
 
+export interface TableInfo {
+    name: string;
+    type: string;
+    engine: string;
+    rows: number;
+    data_length: number;
+    index_length: number;
+    total_size: number;
+    collation: string;
+    comment: string;
+}
+
+export interface ColumnInfo {
+    name: string;
+    position: number;
+    type: string;
+    data_type: string;
+    is_nullable: boolean;
+    key: string;
+    default: string | null;
+    extra: string;
+    comment: string;
+}
+
+export interface IndexInfo {
+    name: string;
+    column: string;
+    non_unique: boolean;
+    is_primary: boolean;
+    seq_in_index: number;
+    type: string;
+}
+
+export interface ForeignKeyInfo {
+    constraint_name: string;
+    column: string;
+    referenced_table: string;
+    referenced_column: string;
+}
+
+export interface TableStructure {
+    table_name: string;
+    columns: ColumnInfo[];
+    indexes: IndexInfo[];
+    foreign_keys: ForeignKeyInfo[];
+    create_statement: string;
+}
+
+export interface TableDataResult {
+    table_name: string;
+    columns: string[];
+    rows: Record<string, any>[];
+    total_rows: number;
+    page: number;
+    per_page: number;
+    total_pages: number;
+}
+
 export interface CronJob {
     id: string | number;
     website_id: string | number | null;

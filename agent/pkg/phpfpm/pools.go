@@ -12,18 +12,19 @@ import (
 )
 
 type PoolConfig struct {
-	Domain             string `json:"domain"`
-	SystemUser         string `json:"system_user"`
-	PhpVersion         string `json:"php_version"` // "8.3" or "8.4"
-	DocumentRoot       string `json:"document_root"`
-	MaxChildren        int    `json:"max_children"`
-	StartServers       int    `json:"start_servers"`
-	MinSpareServers    int    `json:"min_spare_servers"`
-	MaxSpareServers    int    `json:"max_spare_servers"`
-	MaxRequests        int    `json:"max_requests"`
-	MemoryLimit        string `json:"memory_limit"`
-	UploadMaxFilesize  string `json:"upload_max_filesize"`
-	PostMaxSize        string `json:"post_max_size"`
+	Domain            string `json:"domain"`
+	SystemUser        string `json:"system_user"`
+	PhpVersion        string `json:"php_version"` // "8.3" or "8.4"
+	DocumentRoot      string `json:"document_root"`
+	BaseDir           string `json:"base_dir"`
+	MaxChildren       int    `json:"max_children"`
+	StartServers      int    `json:"start_servers"`
+	MinSpareServers   int    `json:"min_spare_servers"`
+	MaxSpareServers   int    `json:"max_spare_servers"`
+	MaxRequests       int    `json:"max_requests"`
+	MemoryLimit       string `json:"memory_limit"`
+	UploadMaxFilesize string `json:"upload_max_filesize"`
+	PostMaxSize       string `json:"post_max_size"`
 }
 
 const poolTemplate = `; Managed by Kodepreneur Control Plane - DO NOT EDIT MANUALLY
@@ -48,10 +49,10 @@ php_admin_value[upload_max_filesize] = {{ .UploadMaxFilesize }}
 php_admin_value[post_max_size] = {{ .PostMaxSize }}
 php_admin_value[max_execution_time] = 300
 php_admin_value[date.timezone] = UTC
-php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,curl_multi_exec,parse_ini_file,show_source
+php_admin_value[disable_functions] = exec,passthru,shell_exec,system,proc_open,popen,show_source
 
 ; Security / Open Basedir
-php_admin_value[open_basedir] = {{ .DocumentRoot }}:/tmp:/var/tmp
+php_admin_value[open_basedir] = {{ .BaseDir }}:/tmp:/var/tmp
 `
 
 type Manager struct {
@@ -173,6 +174,19 @@ func (m *Manager) CreatePool(cfg PoolConfig) (string, error) {
 	}
 	if cfg.PostMaxSize == "" {
 		cfg.PostMaxSize = "512M"
+	}
+	if cfg.BaseDir == "" {
+		if cfg.Domain != "" {
+			cfg.BaseDir = fmt.Sprintf("/var/www/%s", cfg.Domain)
+		} else if cfg.DocumentRoot != "" {
+			if strings.HasSuffix(cfg.DocumentRoot, "/public") {
+				cfg.BaseDir = filepath.Dir(cfg.DocumentRoot)
+			} else {
+				cfg.BaseDir = cfg.DocumentRoot
+			}
+		} else {
+			cfg.BaseDir = "/var/www"
+		}
 	}
 
 	tmpl, err := template.New("php_pool").Parse(poolTemplate)

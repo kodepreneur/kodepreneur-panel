@@ -200,6 +200,156 @@ class MockAgentClient implements AgentClientInterface
         ];
     }
 
+    public function getDatabaseTables(string $engine, string $name): array
+    {
+        if (strtolower($engine) === 'postgresql' || strtolower($engine) === 'postgres') {
+            return [
+                ['name' => 'accounts', 'type' => 'BASE TABLE', 'engine' => 'PostgreSQL', 'rows' => 5400, 'data_length' => 524288, 'index_length' => 131072, 'total_size' => 655360, 'collation' => 'UTF8', 'comment' => 'Organization billing accounts'],
+                ['name' => 'subscriptions', 'type' => 'BASE TABLE', 'engine' => 'PostgreSQL', 'rows' => 3200, 'data_length' => 262144, 'index_length' => 65536, 'total_size' => 327680, 'collation' => 'UTF8', 'comment' => 'SaaS subscriptions'],
+                ['name' => 'invoices', 'type' => 'BASE TABLE', 'engine' => 'PostgreSQL', 'rows' => 15400, 'data_length' => 2097152, 'index_length' => 524288, 'total_size' => 2621440, 'collation' => 'UTF8', 'comment' => 'Customer invoices'],
+                ['name' => 'audit_events', 'type' => 'BASE TABLE', 'engine' => 'PostgreSQL', 'rows' => 84000, 'data_length' => 8388608, 'index_length' => 2097152, 'total_size' => 10485760, 'collation' => 'UTF8', 'comment' => 'System audit logs'],
+            ];
+        }
+
+        return [
+            ['name' => 'users', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 1420, 'data_length' => 163840, 'index_length' => 65536, 'total_size' => 229376, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'System and app users'],
+            ['name' => 'orders', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 8930, 'data_length' => 1048576, 'index_length' => 393216, 'total_size' => 1441792, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'Customer orders'],
+            ['name' => 'order_items', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 24500, 'data_length' => 2097152, 'index_length' => 786432, 'total_size' => 2883584, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'Items per order'],
+            ['name' => 'products', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 340, 'data_length' => 98304, 'index_length' => 32768, 'total_size' => 131072, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'Product catalog'],
+            ['name' => 'settings', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 28, 'data_length' => 16384, 'index_length' => 16384, 'total_size' => 32768, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'Configuration settings'],
+            ['name' => 'migrations', 'type' => 'BASE TABLE', 'engine' => 'InnoDB', 'rows' => 18, 'data_length' => 16384, 'index_length' => 0, 'total_size' => 16384, 'collation' => 'utf8mb4_unicode_ci', 'comment' => 'Database migration ledger'],
+        ];
+    }
+
+    public function getTableStructure(string $engine, string $name, string $table): array
+    {
+        if (strtolower($engine) === 'postgresql' || strtolower($engine) === 'postgres') {
+            return [
+                'table_name' => $table,
+                'columns' => [
+                    ['name' => 'id', 'position' => 1, 'type' => 'uuid', 'data_type' => 'uuid', 'is_nullable' => false, 'key' => 'PRI', 'default' => null, 'extra' => '', 'comment' => 'Primary Key UUID'],
+                    ['name' => 'account_id', 'position' => 2, 'type' => 'uuid', 'data_type' => 'uuid', 'is_nullable' => false, 'key' => 'MUL', 'default' => null, 'extra' => '', 'comment' => 'Parent account FK'],
+                    ['name' => 'status', 'position' => 3, 'type' => 'character varying(32)', 'data_type' => 'varchar', 'is_nullable' => false, 'key' => '', 'default' => "'active'::text", 'extra' => '', 'comment' => 'Current status'],
+                    ['name' => 'metadata', 'position' => 4, 'type' => 'jsonb', 'data_type' => 'jsonb', 'is_nullable' => true, 'key' => '', 'default' => null, 'extra' => '', 'comment' => 'Custom JSON attributes'],
+                    ['name' => 'created_at', 'position' => 5, 'type' => 'timestamp with time zone', 'data_type' => 'timestamp', 'is_nullable' => false, 'key' => '', 'default' => 'now()', 'extra' => '', 'comment' => 'Creation timestamp'],
+                ],
+                'indexes' => [
+                    ['name' => "{$table}_pkey", 'column' => 'id', 'non_unique' => false, 'is_primary' => true, 'seq_in_index' => 1, 'type' => 'btree'],
+                    ['name' => "{$table}_account_id_idx", 'column' => 'account_id', 'non_unique' => true, 'is_primary' => false, 'seq_in_index' => 1, 'type' => 'btree'],
+                ],
+                'foreign_keys' => [
+                    ['constraint_name' => "{$table}_account_id_fkey", 'column' => 'account_id', 'referenced_table' => 'accounts', 'referenced_column' => 'id'],
+                ],
+                'create_statement' => "CREATE TABLE public.{$table} (\n    id uuid NOT NULL,\n    account_id uuid NOT NULL,\n    status character varying(32) NOT NULL DEFAULT 'active'::text,\n    metadata jsonb,\n    created_at timestamp with time zone NOT NULL DEFAULT now(),\n    CONSTRAINT {$table}_pkey PRIMARY KEY (id)\n);",
+            ];
+        }
+
+        if ($table === 'orders') {
+            return [
+                'table_name' => 'orders',
+                'columns' => [
+                    ['name' => 'id', 'position' => 1, 'type' => 'bigint unsigned', 'data_type' => 'bigint', 'is_nullable' => false, 'key' => 'PRI', 'default' => null, 'extra' => 'auto_increment', 'comment' => 'Primary Key'],
+                    ['name' => 'user_id', 'position' => 2, 'type' => 'bigint unsigned', 'data_type' => 'bigint', 'is_nullable' => false, 'key' => 'MUL', 'default' => null, 'extra' => '', 'comment' => 'Customer FK'],
+                    ['name' => 'order_number', 'position' => 3, 'type' => 'varchar(64)', 'data_type' => 'varchar', 'is_nullable' => false, 'key' => 'UNI', 'default' => null, 'extra' => '', 'comment' => 'Invoice Ref'],
+                    ['name' => 'total_amount', 'position' => 4, 'type' => 'decimal(12,2)', 'data_type' => 'decimal', 'is_nullable' => false, 'key' => '', 'default' => '0.00', 'extra' => '', 'comment' => 'Total in USD'],
+                    ['name' => 'status', 'position' => 5, 'type' => 'varchar(32)', 'data_type' => 'varchar', 'is_nullable' => false, 'key' => '', 'default' => null, 'extra' => '', 'comment' => 'Order Status'],
+                    ['name' => 'created_at', 'position' => 6, 'type' => 'timestamp', 'data_type' => 'timestamp', 'is_nullable' => true, 'key' => '', 'default' => 'CURRENT_TIMESTAMP', 'extra' => '', 'comment' => ''],
+                    ['name' => 'updated_at', 'position' => 7, 'type' => 'timestamp', 'data_type' => 'timestamp', 'is_nullable' => true, 'key' => '', 'default' => 'CURRENT_TIMESTAMP', 'extra' => 'on update CURRENT_TIMESTAMP', 'comment' => ''],
+                ],
+                'indexes' => [
+                    ['name' => 'PRIMARY', 'column' => 'id', 'non_unique' => false, 'is_primary' => true, 'seq_in_index' => 1, 'type' => 'BTREE'],
+                    ['name' => 'orders_order_number_unique', 'column' => 'order_number', 'non_unique' => false, 'is_primary' => false, 'seq_in_index' => 1, 'type' => 'BTREE'],
+                    ['name' => 'orders_user_id_index', 'column' => 'user_id', 'non_unique' => true, 'is_primary' => false, 'seq_in_index' => 1, 'type' => 'BTREE'],
+                ],
+                'foreign_keys' => [
+                    ['constraint_name' => 'orders_user_id_foreign', 'column' => 'user_id', 'referenced_table' => 'users', 'referenced_column' => 'id'],
+                ],
+                'create_statement' => "CREATE TABLE `orders` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `user_id` bigint unsigned NOT NULL,\n  `order_number` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `total_amount` decimal(12,2) NOT NULL DEFAULT '0.00',\n  `status` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,\n  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `orders_order_number_unique` (`order_number`),\n  KEY `orders_user_id_index` (`user_id`),\n  CONSTRAINT `orders_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+            ];
+        }
+
+        return [
+            'table_name' => $table,
+            'columns' => [
+                ['name' => 'id', 'position' => 1, 'type' => 'bigint unsigned', 'data_type' => 'bigint', 'is_nullable' => false, 'key' => 'PRI', 'default' => null, 'extra' => 'auto_increment', 'comment' => 'Unique Identifier'],
+                ['name' => 'name', 'position' => 2, 'type' => 'varchar(255)', 'data_type' => 'varchar', 'is_nullable' => false, 'key' => '', 'default' => null, 'extra' => '', 'comment' => 'Name field'],
+                ['name' => 'email', 'position' => 3, 'type' => 'varchar(255)', 'data_type' => 'varchar', 'is_nullable' => false, 'key' => 'UNI', 'default' => null, 'extra' => '', 'comment' => 'Email Address'],
+                ['name' => 'is_active', 'position' => 4, 'type' => 'tinyint(1)', 'data_type' => 'tinyint', 'is_nullable' => false, 'key' => '', 'default' => '1', 'extra' => '', 'comment' => 'Active Flag'],
+                ['name' => 'created_at', 'position' => 5, 'type' => 'timestamp', 'data_type' => 'timestamp', 'is_nullable' => true, 'key' => '', 'default' => 'CURRENT_TIMESTAMP', 'extra' => '', 'comment' => ''],
+            ],
+            'indexes' => [
+                ['name' => 'PRIMARY', 'column' => 'id', 'non_unique' => false, 'is_primary' => true, 'seq_in_index' => 1, 'type' => 'BTREE'],
+                ['name' => 'users_email_unique', 'column' => 'email', 'non_unique' => false, 'is_primary' => false, 'seq_in_index' => 1, 'type' => 'BTREE'],
+            ],
+            'foreign_keys' => [],
+            'create_statement' => "CREATE TABLE `{$table}` (\n  `id` bigint unsigned NOT NULL AUTO_INCREMENT,\n  `name` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `email` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,\n  `is_active` tinyint(1) NOT NULL DEFAULT '1',\n  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `users_email_unique` (`email`)\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+        ];
+    }
+
+    public function getTableData(string $engine, string $name, string $table, array $params = []): array
+    {
+        $page = max(1, (int) ($params['page'] ?? 1));
+        $perPage = min(500, max(1, (int) ($params['per_page'] ?? 50)));
+
+        if (strtolower($engine) === 'postgresql' || strtolower($engine) === 'postgres') {
+            $cols = ['id', 'account_id', 'status', 'metadata', 'created_at'];
+            $rows = [
+                ['id' => 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'account_id' => 'c1f9b3e1-22e4-4e9b-b6d8-111122223333', 'status' => 'active', 'metadata' => '{"plan": "pro", "seats": 10}', 'created_at' => '2026-08-28T08:00:00Z'],
+                ['id' => 'b1ffcd88-8d0a-4fe7-aa5c-5aa8ac270b22', 'account_id' => 'c1f9b3e1-22e4-4e9b-b6d8-111122223333', 'status' => 'active', 'metadata' => '{"plan": "enterprise", "seats": 50}', 'created_at' => '2026-08-28T09:15:00Z'],
+                ['id' => 'c2eedd77-7e09-4fd6-994b-4bb7bd160c33', 'account_id' => 'd2e8a4f2-33f5-4f0c-a7e9-444455556666', 'status' => 'trialing', 'metadata' => '{"plan": "starter", "seats": 2}', 'created_at' => '2026-08-28T10:30:00Z'],
+            ];
+
+            return [
+                'table_name' => $table,
+                'columns' => $cols,
+                'rows' => $rows,
+                'total_rows' => 3200,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => 64,
+            ];
+        }
+
+        if ($table === 'orders') {
+            $cols = ['id', 'user_id', 'order_number', 'total_amount', 'status', 'created_at'];
+            $rows = [
+                ['id' => '1001', 'user_id' => '42', 'order_number' => 'ORD-2026-001', 'total_amount' => '149.99', 'status' => 'completed', 'created_at' => '2026-08-28 10:15:00'],
+                ['id' => '1002', 'user_id' => '19', 'order_number' => 'ORD-2026-002', 'total_amount' => '89.50', 'status' => 'processing', 'created_at' => '2026-08-28 11:20:00'],
+                ['id' => '1003', 'user_id' => '77', 'order_number' => 'ORD-2026-003', 'total_amount' => '320.00', 'status' => 'completed', 'created_at' => '2026-08-28 12:05:00'],
+                ['id' => '1004', 'user_id' => '105', 'order_number' => 'ORD-2026-004', 'total_amount' => '24.95', 'status' => 'pending', 'created_at' => '2026-08-28 13:45:00'],
+                ['id' => '1005', 'user_id' => '31', 'order_number' => 'ORD-2026-005', 'total_amount' => '512.10', 'status' => 'completed', 'created_at' => '2026-08-28 14:10:00'],
+            ];
+            return [
+                'table_name' => $table,
+                'columns' => $cols,
+                'rows' => $rows,
+                'total_rows' => 8930,
+                'page' => $page,
+                'per_page' => $perPage,
+                'total_pages' => 179,
+            ];
+        }
+
+        $cols = ['id', 'name', 'email', 'is_active', 'created_at'];
+        $rows = [
+            ['id' => '1', 'name' => 'Admin User', 'email' => 'admin@kodepreneur.com', 'is_active' => '1', 'created_at' => '2026-01-01 08:00:00'],
+            ['id' => '2', 'name' => 'Sarah Connor', 'email' => 'sarah@cyberdyne.io', 'is_active' => '1', 'created_at' => '2026-01-15 09:30:00'],
+            ['id' => '3', 'name' => 'Alex Murphy', 'email' => 'alex.murphy@ocp.corp', 'is_active' => '1', 'created_at' => '2026-02-10 14:22:00'],
+            ['id' => '4', 'name' => 'Thomas Anderson', 'email' => 'neo@matrix.net', 'is_active' => '0', 'created_at' => '2026-03-01 19:45:00'],
+            ['id' => '5', 'name' => 'Ellen Ripley', 'email' => 'ripley@weyland.org', 'is_active' => '1', 'created_at' => '2026-04-12 11:15:00'],
+        ];
+
+        return [
+            'table_name' => $table,
+            'columns' => $cols,
+            'rows' => $rows,
+            'total_rows' => 1420,
+            'page' => $page,
+            'per_page' => $perPage,
+            'total_pages' => 29,
+        ];
+    }
+
     public function executeDeployment(array $payload): array
     {
         return [

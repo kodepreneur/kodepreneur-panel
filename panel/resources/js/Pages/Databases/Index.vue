@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
     Database,
+    Table,
     Plus,
     Trash2,
     Shield,
@@ -278,6 +279,14 @@ function deleteUser(u: DatabaseUser) {
                                 </td>
                                 <td class="py-3.5 px-4 text-right">
                                     <div class="flex items-center justify-end gap-1.5">
+                                        <Link
+                                            :href="`/databases/${db.id}/explorer`"
+                                            class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition border border-emerald-200/80 dark:border-emerald-500/30"
+                                            title="Explore Tables and Data"
+                                        >
+                                            <Table class="w-3.5 h-3.5" />
+                                            <span>Explore</span>
+                                        </Link>
                                         <button
                                             @click="openGrantModal(db.id)"
                                             class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-300 text-[11px] transition"

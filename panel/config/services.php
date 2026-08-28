@@ -38,7 +38,7 @@ return [
     'agent' => [
         'host' => env('AGENT_BASE_URL', 'http://127.0.0.1:8443'),
         'secret' => env('AGENT_SECRET_KEY', ''),
-        'use_mock' => filter_var(env('AGENT_MOCK', false), FILTER_VALIDATE_BOOLEAN),
+        'use_mock' => filter_var(env('AGENT_MOCK', env('KODEPRENEUR_AGENT_USE_MOCK', false)), FILTER_VALIDATE_BOOLEAN),
     ],
 
 ];

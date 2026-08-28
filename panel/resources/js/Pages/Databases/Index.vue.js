@@ -1,8 +1,8 @@
 /// <reference types="../../../../node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
 import { ref } from 'vue';
-import { useForm, router } from '@inertiajs/vue3';
+import { useForm, router, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Database, Plus, Trash2, UserCheck, Users, Key, Sparkles, } from 'lucide-vue-next';
+import { Database, Table, Plus, Trash2, UserCheck, Users, Key, Sparkles, } from 'lucide-vue-next';
 const props = defineProps();
 const activeTab = ref('databases');
 // Create Database Modal State & Form
@@ -390,6 +390,31 @@ if (__VLS_ctx.activeTab === 'databases') {
             __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
                 ...{ class: "flex items-center justify-end gap-1.5" },
             });
+            const __VLS_40 = {}.Link;
+            /** @type {[typeof __VLS_components.Link, typeof __VLS_components.Link, ]} */ ;
+            // @ts-ignore
+            const __VLS_41 = __VLS_asFunctionalComponent(__VLS_40, new __VLS_40({
+                href: (`/databases/${db.id}/explorer`),
+                ...{ class: "px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition border border-emerald-200/80 dark:border-emerald-500/30" },
+                title: "Explore Tables and Data",
+            }));
+            const __VLS_42 = __VLS_41({
+                href: (`/databases/${db.id}/explorer`),
+                ...{ class: "px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-[11px] font-semibold flex items-center gap-1 transition border border-emerald-200/80 dark:border-emerald-500/30" },
+                title: "Explore Tables and Data",
+            }, ...__VLS_functionalComponentArgsRest(__VLS_41));
+            __VLS_43.slots.default;
+            const __VLS_44 = {}.Table;
+            /** @type {[typeof __VLS_components.Table, ]} */ ;
+            // @ts-ignore
+            const __VLS_45 = __VLS_asFunctionalComponent(__VLS_44, new __VLS_44({
+                ...{ class: "w-3.5 h-3.5" },
+            }));
+            const __VLS_46 = __VLS_45({
+                ...{ class: "w-3.5 h-3.5" },
+            }, ...__VLS_functionalComponentArgsRest(__VLS_45));
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+            var __VLS_43;
             __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
                 ...{ onClick: (...[$event]) => {
                         if (!(__VLS_ctx.activeTab === 'databases'))
@@ -412,15 +437,15 @@ if (__VLS_ctx.activeTab === 'databases') {
                 ...{ class: "p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition" },
                 title: "Drop Database",
             });
-            const __VLS_40 = {}.Trash2;
+            const __VLS_48 = {}.Trash2;
             /** @type {[typeof __VLS_components.Trash2, ]} */ ;
             // @ts-ignore
-            const __VLS_41 = __VLS_asFunctionalComponent(__VLS_40, new __VLS_40({
+            const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
                 ...{ class: "w-3.5 h-3.5" },
             }));
-            const __VLS_42 = __VLS_41({
+            const __VLS_50 = __VLS_49({
                 ...{ class: "w-3.5 h-3.5" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_41));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_49));
         }
     }
 }
@@ -432,15 +457,15 @@ if (__VLS_ctx.activeTab === 'users') {
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
             ...{ class: "text-center py-14 px-4" },
         });
-        const __VLS_44 = {}.Users;
+        const __VLS_52 = {}.Users;
         /** @type {[typeof __VLS_components.Users, ]} */ ;
         // @ts-ignore
-        const __VLS_45 = __VLS_asFunctionalComponent(__VLS_44, new __VLS_44({
+        const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
             ...{ class: "w-10 h-10 text-slate-300 dark:text-surface-600 mx-auto mb-3" },
         }));
-        const __VLS_46 = __VLS_45({
+        const __VLS_54 = __VLS_53({
             ...{ class: "w-10 h-10 text-slate-300 dark:text-surface-600 mx-auto mb-3" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_45));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_53));
         __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
             ...{ class: "text-sm font-medium text-slate-700 dark:text-surface-200" },
         });
@@ -457,15 +482,15 @@ if (__VLS_ctx.activeTab === 'users') {
                 } },
             ...{ class: "mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-semibold hover:bg-brand-500 transition shadow-md shadow-brand-600/20" },
         });
-        const __VLS_48 = {}.Plus;
+        const __VLS_56 = {}.Plus;
         /** @type {[typeof __VLS_components.Plus, ]} */ ;
         // @ts-ignore
-        const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
+        const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
             ...{ class: "w-3.5 h-3.5" },
         }));
-        const __VLS_50 = __VLS_49({
+        const __VLS_58 = __VLS_57({
             ...{ class: "w-3.5 h-3.5" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_49));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_57));
         __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     }
     else {
@@ -508,15 +533,15 @@ if (__VLS_ctx.activeTab === 'users') {
             __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
                 ...{ class: "flex items-center gap-2" },
             });
-            const __VLS_52 = {}.Users;
+            const __VLS_60 = {}.Users;
             /** @type {[typeof __VLS_components.Users, ]} */ ;
             // @ts-ignore
-            const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+            const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
                 ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" },
             }));
-            const __VLS_54 = __VLS_53({
+            const __VLS_62 = __VLS_61({
                 ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400 shrink-0" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_53));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_61));
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
             (u.username);
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
@@ -576,15 +601,15 @@ if (__VLS_ctx.activeTab === 'users') {
                 ...{ class: "px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-300 text-[11px] flex items-center gap-1 transition" },
                 title: "Change Password",
             });
-            const __VLS_56 = {}.Key;
+            const __VLS_64 = {}.Key;
             /** @type {[typeof __VLS_components.Key, ]} */ ;
             // @ts-ignore
-            const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
+            const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
                 ...{ class: "w-3 h-3 text-amber-500" },
             }));
-            const __VLS_58 = __VLS_57({
+            const __VLS_66 = __VLS_65({
                 ...{ class: "w-3 h-3 text-amber-500" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_57));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_65));
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
             __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
                 ...{ onClick: (...[$event]) => {
@@ -597,15 +622,15 @@ if (__VLS_ctx.activeTab === 'users') {
                 ...{ class: "p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition" },
                 title: "Drop User",
             });
-            const __VLS_60 = {}.Trash2;
+            const __VLS_68 = {}.Trash2;
             /** @type {[typeof __VLS_components.Trash2, ]} */ ;
             // @ts-ignore
-            const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
+            const __VLS_69 = __VLS_asFunctionalComponent(__VLS_68, new __VLS_68({
                 ...{ class: "w-3.5 h-3.5" },
             }));
-            const __VLS_62 = __VLS_61({
+            const __VLS_70 = __VLS_69({
                 ...{ class: "w-3.5 h-3.5" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_61));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_69));
         }
     }
 }
@@ -751,15 +776,15 @@ if (__VLS_ctx.isCreateUserOpen) {
         type: "button",
         ...{ class: "text-[11px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium" },
     });
-    const __VLS_64 = {}.Sparkles;
+    const __VLS_72 = {}.Sparkles;
     /** @type {[typeof __VLS_components.Sparkles, ]} */ ;
     // @ts-ignore
-    const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
+    const __VLS_73 = __VLS_asFunctionalComponent(__VLS_72, new __VLS_72({
         ...{ class: "w-3 h-3" },
     }));
-    const __VLS_66 = __VLS_65({
+    const __VLS_74 = __VLS_73({
         ...{ class: "w-3 h-3" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_65));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_73));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
         value: (__VLS_ctx.userForm.password),
@@ -1164,6 +1189,26 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['items-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['justify-end']} */ ;
 /** @type {__VLS_StyleScopedClasses['gap-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-emerald-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:bg-emerald-100']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-emerald-500/10']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:bg-emerald-500/20']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-emerald-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-emerald-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-emerald-200/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-emerald-500/30']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3.5']} */ ;
 /** @type {__VLS_StyleScopedClasses['px-2.5']} */ ;
 /** @type {__VLS_StyleScopedClasses['py-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
@@ -1815,8 +1860,10 @@ var __VLS_dollars;
 const __VLS_self = (await import('vue')).defineComponent({
     setup() {
         return {
+            Link: Link,
             AppLayout: AppLayout,
             Database: Database,
+            Table: Table,
             Plus: Plus,
             Trash2: Trash2,
             UserCheck: UserCheck,
