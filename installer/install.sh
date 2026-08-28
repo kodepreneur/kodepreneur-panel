@@ -124,20 +124,32 @@ done
 SERVER_IP=$(curl -s4 --max-time 3 ifconfig.me || hostname -I | awk '{print $1}' || echo "127.0.0.1")
 export SERVER_IP
 
-# Interactive prompts if not unattended
+# Interactive prompts if terminal is available and not in unattended mode
 if [ "$UNATTENDED" = false ]; then
-    echo -e "${COLOR_WHITE}Installer Configuration:${COLOR_RESET}"
-    read -r -p "  Enter Admin Email [${ADMIN_EMAIL}]: " input_email
-    if [ -n "$input_email" ]; then ADMIN_EMAIL="$input_email"; fi
+    HAS_TTY=false
+    TTY_DEV=""
+    if [ -e /dev/tty ] && [ -r /dev/tty ]; then
+        HAS_TTY=true
+        TTY_DEV="/dev/tty"
+    elif [ -t 0 ]; then
+        HAS_TTY=true
+        TTY_DEV="/dev/stdin"
+    fi
 
-    read -r -p "  Enter Panel Port [${PANEL_PORT}]: " input_port
-    if [ -n "$input_port" ]; then PANEL_PORT="$input_port"; fi
+    if [ "$HAS_TTY" = true ]; then
+        echo -e "${COLOR_WHITE}Installer Configuration:${COLOR_RESET}"
+        read -r -p "  Enter Admin Email [${ADMIN_EMAIL}]: " input_email < "$TTY_DEV" || true
+        if [ -n "${input_email:-}" ]; then ADMIN_EMAIL="$input_email"; fi
 
-    if [ -z "$ADMIN_PASSWORD" ]; then
-        read -r -s -p "  Enter Admin Password (leave blank to auto-generate): " input_pass
-        echo ""
-        if [ -n "$input_pass" ]; then
-            ADMIN_PASSWORD="$input_pass"
+        read -r -p "  Enter Panel Port [${PANEL_PORT}]: " input_port < "$TTY_DEV" || true
+        if [ -n "${input_port:-}" ]; then PANEL_PORT="$input_port"; fi
+
+        if [ -z "${ADMIN_PASSWORD:-}" ]; then
+            read -r -s -p "  Enter Admin Password (leave blank to auto-generate): " input_pass < "$TTY_DEV" || true
+            echo ""
+            if [ -n "${input_pass:-}" ]; then
+                ADMIN_PASSWORD="$input_pass"
+            fi
         fi
     fi
 fi
