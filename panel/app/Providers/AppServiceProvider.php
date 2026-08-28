@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
 
             return new \App\Services\Agent\HttpAgentClient(
                 baseUrl: (string) config('services.agent.host', 'http://127.0.0.1:8443'),
-                secret: (string) config('services.agent.secret', 'kodepreneur-dev-secret-key-change-in-production')
+                secret: (string) config('services.agent.secret', '')
             );
         });
     }
