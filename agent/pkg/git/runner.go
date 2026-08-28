@@ -164,12 +164,40 @@ func (r *Runner) CloneRepo(repoUrl, branch, targetDir, systemUser string) error 
 		return nil
 	}
 
-	_ = os.MkdirAll(targetDir, 0755)
-	cloneCmd := fmt.Sprintf("git clone --branch %s --depth 1 %s %s", branch, repoUrl, targetDir)
-	cmd := exec.Command("su", "-", systemUser, "-s", "/bin/bash", "-c", cloneCmd)
+	// 1. Ensure target directory exists and is owned by systemUser:www-data
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("failed to create target directory %s: %w", targetDir, err)
+	}
+	chownCmd := exec.Command("chown", "-R", fmt.Sprintf("%s:www-data", systemUser), targetDir)
+	_ = chownCmd.Run()
+	chmodCmd := exec.Command("chmod", "0755", targetDir)
+	_ = chmodCmd.Run()
+
+	// 2. Clone or initialize git repository in place as the system user
+	cloneScript := fmt.Sprintf(`set -e
+export GIT_TERMINAL_PROMPT=0
+git config --global --add safe.directory "%s" 2>/dev/null || true
+cd "%s"
+if [ ! -d ".git" ]; then
+    git init -b "%s" 2>/dev/null || (git init && git checkout -B "%s" 2>/dev/null || true)
+    git remote add origin "%s" 2>/dev/null || git remote set-url origin "%s"
+    git fetch --depth 1 origin "%s"
+    git reset --hard "origin/%s" || git checkout -f -B "%s" "origin/%s"
+else
+    git remote set-url origin "%s"
+    git fetch --depth 1 origin "%s"
+    git reset --hard "origin/%s"
+fi
+`, targetDir, targetDir, branch, branch, repoUrl, repoUrl, branch, branch, branch, branch, repoUrl, branch, branch)
+
+	cmd := exec.Command("su", "-", systemUser, "-s", "/bin/bash", "-c", cloneScript)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git clone failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
 	}
+
+	// 3. Ensure permissions across all cloned files
+	postChownCmd := exec.Command("chown", "-R", fmt.Sprintf("%s:www-data", systemUser), targetDir)
+	_ = postChownCmd.Run()
 
 	return nil
 }
