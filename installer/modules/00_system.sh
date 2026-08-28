@@ -40,6 +40,20 @@ ufw allow 443/tcp comment 'HTTPS' >/dev/null 2>&1 || true
 ufw allow "${PANEL_PORT}/tcp" comment 'Kodepreneur Panel' >/dev/null 2>&1 || true
 ufw --force enable >/dev/null 2>&1 || true
 
+# Setup Swap if memory is constrained (< 2GB) and no swap exists
+SWAP_TOTAL=$(free -m 2>/dev/null | awk '/^Swap:/ {print $2}' || echo "0")
+MEM_TOTAL=$(free -m 2>/dev/null | awk '/^Mem:/ {print $2}' || echo "2048")
+if [ "${SWAP_TOTAL:-0}" -eq 0 ] && [ "${MEM_TOTAL:-2048}" -lt 2048 ]; then
+    echo -e "${COLOR_GREEN}  - Configuring 1GB swap space for system stability...${COLOR_RESET}"
+    fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024 2>/dev/null || true
+    chmod 600 /swapfile 2>/dev/null || true
+    mkswap /swapfile >/dev/null 2>&1 || true
+    swapon /swapfile >/dev/null 2>&1 || true
+    if ! grep -q "/swapfile" /etc/fstab 2>/dev/null; then
+        echo "/swapfile swap swap defaults 0 0" >> /etc/fstab
+    fi
+fi
+
 # Start & enable Fail2ban
 systemctl enable fail2ban >/dev/null 2>&1 || true
 systemctl restart fail2ban >/dev/null 2>&1 || true

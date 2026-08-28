@@ -10,9 +10,16 @@ echo -e "${COLOR_BLUE}[2/7] Installing PHP runtimes, Composer, and Node.js...${C
 export DEBIAN_FRONTEND=noninteractive
 
 # Add Ondřej Surý PHP PPA repository
-if ! grep -q "^deb .*ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/* 2>/dev/null; then
-    add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1
-    apt-get update -y -qq
+if ! grep -rq "ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null; then
+    echo -e "${COLOR_GREEN}  - Adding Ondrej PHP PPA repository...${COLOR_RESET}"
+    if ! LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php >/dev/null 2>&1; then
+        echo -e "${COLOR_YELLOW}    Warning: add-apt-repository returned non-zero, configuring GPG keyring via HTTPS...${COLOR_RESET}"
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C" | gpg --dearmor -o /etc/apt/keyrings/ondrej-php.gpg --yes 2>/dev/null || true
+        UBUNTU_CODENAME="$(. /etc/os-release && echo "${VERSION_CODENAME:-noble}")"
+        echo "deb [signed-by=/etc/apt/keyrings/ondrej-php.gpg] https://ppa.launchpadcontent.net/ondrej/php/ubuntu ${UBUNTU_CODENAME} main" > /etc/apt/sources.list.d/ondrej-php.list
+    fi
+    apt-get update -y -qq || true
 fi
 
 # PHP Extensions list
