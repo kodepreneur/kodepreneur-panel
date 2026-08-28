@@ -3,6 +3,7 @@ set -euo pipefail
 
 # ==============================================================================
 # Kodepreneur Panel - Master Production Installer
+# Repository: https://github.com/kodepreneur/kodepreneur-panel.git
 # Supported OS: Ubuntu 24.04 LTS, Ubuntu 22.04 LTS
 # ==============================================================================
 
@@ -16,6 +17,8 @@ COLOR_WHITE='\033[1;37m'
 COLOR_RESET='\033[0m'
 
 export COLOR_RED COLOR_GREEN COLOR_YELLOW COLOR_BLUE COLOR_CYAN COLOR_WHITE COLOR_RESET
+
+REPO_GIT_URL="https://github.com/kodepreneur/kodepreneur-panel.git"
 
 # Banner
 clear || true
@@ -55,10 +58,30 @@ ADMIN_PASSWORD=""
 PANEL_PORT="8080"
 UNATTENDED=false
 
-# Determine PROJECT_ROOT
-INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
-export PROJECT_ROOT
+# Determine PROJECT_ROOT and INSTALLER_DIR
+if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
+    INSTALLER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    PROJECT_ROOT="$(cd "${INSTALLER_DIR}/.." && pwd)"
+else
+    INSTALLER_DIR="$(pwd)/installer"
+    PROJECT_ROOT="$(pwd)"
+fi
+
+# If executed via curl | bash (where module scripts do not exist locally), clone the repo
+if [ ! -d "${INSTALLER_DIR}/modules" ] || [ ! -f "${INSTALLER_DIR}/modules/00_system.sh" ]; then
+    echo -e "${COLOR_BLUE}Cloning Kodepreneur Panel from ${REPO_GIT_URL}...${COLOR_RESET}"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -y -qq >/dev/null 2>&1
+    apt-get install -y -qq git curl ca-certificates >/dev/null 2>&1
+    
+    TMP_DIR="/tmp/kodepreneur-panel-install"
+    rm -rf "${TMP_DIR}"
+    git clone --depth 1 "${REPO_GIT_URL}" "${TMP_DIR}"
+    INSTALLER_DIR="${TMP_DIR}/installer"
+    PROJECT_ROOT="${TMP_DIR}"
+fi
+
+export PROJECT_ROOT INSTALLER_DIR REPO_GIT_URL
 
 # Parse Arguments
 while [[ $# -gt 0 ]]; do

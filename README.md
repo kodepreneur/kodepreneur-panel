@@ -55,13 +55,13 @@
 Run the automated installer on a clean **Ubuntu 24.04 LTS** or **Ubuntu 22.04 LTS** server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur_panel/main/installer/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/kodepreneur/kodepreneur-panel/main/installer/install.sh | sudo bash
 ```
 
 Or clone and install interactively:
 
 ```bash
-git clone https://github.com/kodepreneur/kodepreneur_panel.git /tmp/kodepreneur
+git clone https://github.com/kodepreneur/kodepreneur-panel.git /tmp/kodepreneur
 cd /tmp/kodepreneur/installer
 sudo ./install.sh
 ```
