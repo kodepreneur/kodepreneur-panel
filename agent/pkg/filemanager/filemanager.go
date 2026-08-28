@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -67,6 +68,11 @@ func NewManager(isDev bool) *Manager {
 	return &Manager{isDev: isDev}
 }
 
+// SafePath resolves and validates that target stays inside basePath.
+func (m *Manager) SafePath(basePath, relativePath string) (string, error) {
+	return m.safePath(basePath, relativePath)
+}
+
 // safePath resolves and validates that target stays inside basePath.
 func (m *Manager) safePath(basePath, relativePath string) (string, error) {
 	if basePath == "" {
@@ -98,6 +104,80 @@ func (m *Manager) safePath(basePath, relativePath string) (string, error) {
 	}
 
 	return target, nil
+}
+
+func (m *Manager) getTargetOwnership(basePath string) (int, int) {
+	if m.isDev || runtime.GOOS != "linux" {
+		return 0, 0
+	}
+
+	cleanBase := filepath.Clean(basePath)
+
+	// 1. Check if basePath has a specific non-root owner
+	if fi, err := os.Stat(cleanBase); err == nil {
+		if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+			uid := int(stat.Uid)
+			gid := int(stat.Gid)
+			if uid != 0 || gid != 0 {
+				return uid, gid
+			}
+		}
+	}
+
+	// 2. If basePath is inside /var/www/<domain>, look up domain system user kp_<domain>
+	if strings.HasPrefix(cleanBase, "/var/www/") {
+		parts := strings.Split(strings.TrimPrefix(cleanBase, "/var/www/"), "/")
+		if len(parts) > 0 && parts[0] != "" {
+			domainSlug := strings.ReplaceAll(strings.Split(parts[0], ".")[0], "-", "_")
+			systemUser := fmt.Sprintf("kp_%s", domainSlug)
+			if u, err := user.Lookup(systemUser); err == nil {
+				if uid, err := strconv.Atoi(u.Uid); err == nil {
+					gid := uid
+					if g, err := user.LookupGroup("www-data"); err == nil {
+						if gidInt, err := strconv.Atoi(g.Gid); err == nil {
+							gid = gidInt
+						}
+					}
+					return uid, gid
+				}
+			}
+		}
+	}
+
+	// 3. Fallback to www-data if available
+	if u, err := user.Lookup("www-data"); err == nil {
+		if uid, err := strconv.Atoi(u.Uid); err == nil {
+			gid := uid
+			if g, err := user.LookupGroup("www-data"); err == nil {
+				if gidInt, err := strconv.Atoi(g.Gid); err == nil {
+					gid = gidInt
+				}
+			}
+			return uid, gid
+		}
+	}
+
+	return 0, 0
+}
+
+func (m *Manager) applyOwnership(basePath, targetPath string, recursive bool) {
+	if m.isDev || runtime.GOOS != "linux" {
+		return
+	}
+	uid, gid := m.getTargetOwnership(basePath)
+	if uid == 0 && gid == 0 {
+		return
+	}
+	if recursive {
+		_ = filepath.Walk(targetPath, func(path string, info os.FileInfo, err error) error {
+			if err == nil {
+				_ = os.Chown(path, uid, gid)
+			}
+			return nil
+		})
+	} else {
+		_ = os.Chown(targetPath, uid, gid)
+	}
 }
 
 func getOwnerGroup(info os.FileInfo) (string, string, int, int) {
@@ -198,32 +278,41 @@ func (m *Manager) Browse(basePath, relativePath string, showHidden bool) ([]File
 
 // ReadFile reads up to maxBytes from target file.
 func (m *Manager) ReadFile(basePath, relativePath string, maxBytes int64) (string, error) {
-	target, err := m.safePath(basePath, relativePath)
+	data, err := m.ReadFileBytes(basePath, relativePath, maxBytes)
 	if err != nil {
 		return "", err
+	}
+	return string(data), nil
+}
+
+// ReadFileBytes reads binary data from target file.
+func (m *Manager) ReadFileBytes(basePath, relativePath string, maxBytes int64) ([]byte, error) {
+	target, err := m.safePath(basePath, relativePath)
+	if err != nil {
+		return nil, err
 	}
 
 	file, err := os.Open(target)
 	if err != nil {
-		return "", fmt.Errorf("failed to open file: %w", err)
+		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
 	if maxBytes <= 0 {
-		maxBytes = 5 * 1024 * 1024 // 5MB default
+		maxBytes = 50 * 1024 * 1024 // 50MB default
 	}
 
 	limitedReader := io.LimitReader(file, maxBytes)
-	content, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return "", fmt.Errorf("failed to read file content: %w", err)
-	}
-
-	return string(content), nil
+	return io.ReadAll(limitedReader)
 }
 
-// WriteFile atomically writes content to target file.
+// WriteFile atomically writes string content to target file.
 func (m *Manager) WriteFile(basePath, relativePath, content string) error {
+	return m.WriteFileBytes(basePath, relativePath, []byte(content))
+}
+
+// WriteFileBytes atomically writes binary content to target file.
+func (m *Manager) WriteFileBytes(basePath, relativePath string, data []byte) error {
 	target, err := m.safePath(basePath, relativePath)
 	if err != nil {
 		return err
@@ -231,13 +320,17 @@ func (m *Manager) WriteFile(basePath, relativePath, content string) error {
 
 	_ = os.MkdirAll(filepath.Dir(target), 0755)
 
-	// Preserve existing permissions if file exists
 	var perm os.FileMode = 0644
 	if fi, err := os.Stat(target); err == nil {
 		perm = fi.Mode().Perm()
 	}
 
-	return os.WriteFile(target, []byte(content), perm)
+	if err := os.WriteFile(target, data, perm); err != nil {
+		return err
+	}
+
+	m.applyOwnership(basePath, target, false)
+	return nil
 }
 
 // CreateFile creates an empty file.
@@ -256,7 +349,10 @@ func (m *Manager) CreateFile(basePath, relativePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create file: %w", err)
 	}
-	return f.Close()
+	_ = f.Close()
+
+	m.applyOwnership(basePath, target, false)
+	return nil
 }
 
 // CreateDirectory creates a folder at target path.
@@ -265,7 +361,11 @@ func (m *Manager) CreateDirectory(basePath, relativePath string) error {
 	if err != nil {
 		return err
 	}
-	return os.MkdirAll(target, 0755)
+	if err := os.MkdirAll(target, 0755); err != nil {
+		return err
+	}
+	m.applyOwnership(basePath, target, true)
+	return nil
 }
 
 // DeleteEntry removes file or directory at target path.
@@ -853,6 +953,7 @@ func (m *Manager) ExtractZip(reader io.ReaderAt, size int64, destDir string) err
 		}
 	}
 
+	m.applyOwnership(destDir, cleanDest, true)
 	return nil
 }
 
@@ -920,6 +1021,7 @@ func (m *Manager) extractTarReader(r io.Reader, destDir string) error {
 			outFile.Close()
 		}
 	}
+	m.applyOwnership(destDir, cleanDest, true)
 	return nil
 }
 

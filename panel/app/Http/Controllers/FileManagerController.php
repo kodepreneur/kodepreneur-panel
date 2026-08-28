@@ -171,7 +171,7 @@ class FileManagerController extends Controller
 
             $this->logActivity($request, 'file.write', $validated['relative_path'], 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'File saved successfully.']);
             }
 
@@ -182,7 +182,7 @@ class FileManagerController extends Controller
             return redirect($url)->with('success', 'File saved successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.write', $validated['relative_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to write file: ' . $e->getMessage());
@@ -204,7 +204,7 @@ class FileManagerController extends Controller
             $this->agentClient->createFile($basePath, $validated['relative_path']);
             $this->logActivity($request, 'file.create', $validated['relative_path'], 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'File created successfully.']);
             }
 
@@ -214,7 +214,7 @@ class FileManagerController extends Controller
             ])->with('success', 'File created successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.create', $validated['relative_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to create file: ' . $e->getMessage());
@@ -236,7 +236,7 @@ class FileManagerController extends Controller
             $this->agentClient->createDirectory($basePath, $validated['relative_path']);
             $this->logActivity($request, 'file.create_folder', $validated['relative_path'], 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Folder created successfully.']);
             }
 
@@ -246,7 +246,7 @@ class FileManagerController extends Controller
             ])->with('success', 'Folder created successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.create_folder', $validated['relative_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to create folder: ' . $e->getMessage());
@@ -274,7 +274,7 @@ class FileManagerController extends Controller
                 }
             }
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Selected item(s) deleted successfully.']);
             }
 
@@ -283,7 +283,7 @@ class FileManagerController extends Controller
                 'path' => $validated['current_path'] ?? '',
             ])->with('success', 'Item(s) deleted successfully.');
         } catch (Exception $e) {
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to delete: ' . $e->getMessage());
@@ -306,7 +306,7 @@ class FileManagerController extends Controller
             $this->agentClient->renameFile($basePath, $validated['old_path'], $validated['new_path']);
             $this->logActivity($request, 'file.rename', "{$validated['old_path']} -> {$validated['new_path']}", 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Renamed successfully.']);
             }
 
@@ -316,7 +316,7 @@ class FileManagerController extends Controller
             ])->with('success', 'Renamed successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.rename', $validated['old_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to rename: ' . $e->getMessage());
@@ -344,7 +344,7 @@ class FileManagerController extends Controller
                 $this->logActivity($request, 'file.copy', "{$src} -> {$dest}", 'success');
             }
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Copied successfully.']);
             }
 
@@ -353,7 +353,7 @@ class FileManagerController extends Controller
                 'path' => $validated['current_path'] ?? '',
             ])->with('success', 'Copied successfully.');
         } catch (Exception $e) {
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to copy: ' . $e->getMessage());
@@ -381,7 +381,7 @@ class FileManagerController extends Controller
                 $this->logActivity($request, 'file.move', "{$src} -> {$dest}", 'success');
             }
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Moved successfully.']);
             }
 
@@ -390,7 +390,7 @@ class FileManagerController extends Controller
                 'path' => $validated['current_path'] ?? '',
             ])->with('success', 'Moved successfully.');
         } catch (Exception $e) {
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to move: ' . $e->getMessage());
@@ -419,7 +419,7 @@ class FileManagerController extends Controller
             );
             $this->logActivity($request, 'file.chmod', "{$validated['relative_path']} ({$validated['mode']})", 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Permissions updated.']);
             }
 
@@ -428,7 +428,7 @@ class FileManagerController extends Controller
                 'path' => $validated['current_path'] ?? '',
             ])->with('success', 'Permissions updated.');
         } catch (Exception $e) {
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to update permissions: ' . $e->getMessage());
@@ -459,7 +459,7 @@ class FileManagerController extends Controller
             );
             $this->logActivity($request, 'file.chown', $validated['relative_path'], 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Ownership updated.']);
             }
 
@@ -468,7 +468,7 @@ class FileManagerController extends Controller
                 'path' => $validated['current_path'] ?? '',
             ])->with('success', 'Ownership updated.');
         } catch (Exception $e) {
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to update ownership: ' . $e->getMessage());
@@ -510,7 +510,7 @@ class FileManagerController extends Controller
             $this->agentClient->compressFiles($basePath, $validated['sources'], $validated['dest_path'], $format);
             $this->logActivity($request, 'file.compress', "{$validated['dest_path']}", 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Archive created successfully.']);
             }
 
@@ -520,7 +520,7 @@ class FileManagerController extends Controller
             ])->with('success', 'Archive created successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.compress', $validated['dest_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to create archive: ' . $e->getMessage());
@@ -543,7 +543,7 @@ class FileManagerController extends Controller
             $this->agentClient->extractArchive($basePath, $validated['archive_path'], $validated['dest_path']);
             $this->logActivity($request, 'file.extract', "{$validated['archive_path']} -> {$validated['dest_path']}", 'success');
 
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => true, 'message' => 'Archive extracted successfully.']);
             }
 
@@ -553,7 +553,7 @@ class FileManagerController extends Controller
             ])->with('success', 'Archive extracted successfully.');
         } catch (Exception $e) {
             $this->logActivity($request, 'file.extract', $validated['archive_path'], 'failure', ['error' => $e->getMessage()]);
-            if ($request->wantsJson()) {
+            if ($this->isAjaxOrJson($request)) {
                 return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
             }
             return back()->with('error', 'Failed to extract archive: ' . $e->getMessage());
@@ -602,8 +602,9 @@ class FileManagerController extends Controller
             $relPath = $targetDir ? (rtrim($targetDir, '/') . '/' . $filename) : $filename;
 
             try {
-                $content = file_get_contents($uploadedFile->getRealPath());
-                $this->agentClient->writeFile($basePath, $relPath, $content);
+                $rawContent = file_get_contents($uploadedFile->getRealPath());
+                $base64Content = base64_encode($rawContent);
+                $this->agentClient->writeFileBase64($basePath, $relPath, $base64Content);
                 $this->logActivity($request, 'file.upload', $relPath, 'success');
                 $uploaded[] = $filename;
             } catch (Exception $e) {
@@ -624,7 +625,7 @@ class FileManagerController extends Controller
         return response()->json([
             'success' => false,
             'errors' => $errors,
-            'message' => 'Failed to upload files.',
+            'message' => 'Failed to upload files: ' . implode(', ', $errors),
         ], 400);
     }
 
@@ -651,11 +652,25 @@ class FileManagerController extends Controller
             $filePath = "{$basePath}/{$paths[0]}";
             $filename = basename($paths[0]);
 
-            if (file_exists($filePath)) {
+            if (file_exists($filePath) && is_readable($filePath)) {
                 return response()->download($filePath, $filename);
             }
 
-            // Fallback to agent read
+            // Fallback to agent read base64
+            try {
+                $base64 = $this->agentClient->readFileBase64($basePath, $paths[0]);
+                if (!empty($base64)) {
+                    $raw = base64_decode($base64);
+                    return response($raw, 200, [
+                        'Content-Type' => 'application/octet-stream',
+                        'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+                        'Content-Length' => strlen($raw),
+                    ]);
+                }
+            } catch (Exception) {
+                // fallback to readFile
+            }
+
             $content = $this->agentClient->readFile($basePath, $paths[0]);
             return response($content, 200, [
                 'Content-Type' => 'application/octet-stream',
@@ -663,8 +678,18 @@ class FileManagerController extends Controller
             ]);
         }
 
-        // Multiple files or folder: Dynamic zip archive stream
+        // Multiple files or folder: Dynamic zip archive stream via Agent or PHP
         $archiveName = (count($paths) === 1 ? basename($paths[0]) : 'archive') . '-' . date('Ymd-His') . '.zip';
+        $tempArchive = sys_get_temp_dir() . '/' . Str::uuid() . '.zip';
+
+        try {
+            $this->agentClient->compressFiles($basePath, $paths, $tempArchive, 'zip');
+            if (file_exists($tempArchive)) {
+                return response()->download($tempArchive, $archiveName)->deleteFileAfterSend(true);
+            }
+        } catch (Exception) {
+            // fallback
+        }
 
         return response()->streamDownload(function () use ($basePath, $paths) {
             $zip = new ZipArchive();
@@ -673,7 +698,7 @@ class FileManagerController extends Controller
 
             foreach ($paths as $relPath) {
                 $fullPath = "{$basePath}/{$relPath}";
-                if (is_dir($fullPath)) {
+                if (is_dir($fullPath) && is_readable($fullPath)) {
                     $files = new \RecursiveIteratorIterator(
                         new \RecursiveDirectoryIterator($fullPath, \RecursiveDirectoryIterator::SKIP_DOTS),
                         \RecursiveIteratorIterator::LEAVES_ONLY
@@ -685,13 +710,14 @@ class FileManagerController extends Controller
                             $zip->addFile($filePath, $zipRelPath);
                         }
                     }
-                } elseif (file_exists($fullPath)) {
+                } elseif (file_exists($fullPath) && is_readable($fullPath)) {
                     $zip->addFile($fullPath, basename($fullPath));
                 } else {
-                    // Fallback read via agent
                     try {
-                        $content = $this->agentClient->readFile($basePath, $relPath);
-                        $zip->addFromString(basename($relPath), $content);
+                        $base64 = $this->agentClient->readFileBase64($basePath, $relPath);
+                        if (!empty($base64)) {
+                            $zip->addFromString(basename($relPath), base64_decode($base64));
+                        }
                     } catch (Exception) {
                         // Skip if unreadable
                     }
@@ -715,13 +741,29 @@ class FileManagerController extends Controller
 
         $basePath = $this->sanitizeAndValidateBasePath($validated['base_path']);
         $fullPath = "{$basePath}/{$validated['relative_path']}";
+        $filename = basename($validated['relative_path']);
 
-        if (file_exists($fullPath)) {
+        if (file_exists($fullPath) && is_readable($fullPath)) {
             $mime = mime_content_type($fullPath) ?: 'application/octet-stream';
             return response(file_get_contents($fullPath), 200, [
                 'Content-Type' => $mime,
-                'Content-Disposition' => 'inline; filename="' . basename($fullPath) . '"',
+                'Content-Disposition' => 'inline; filename="' . $filename . '"',
             ]);
+        }
+
+        try {
+            $base64 = $this->agentClient->readFileBase64($basePath, $validated['relative_path']);
+            if (!empty($base64)) {
+                $rawBytes = base64_decode($base64);
+                $finfo = new \finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->buffer($rawBytes) ?: 'application/octet-stream';
+                return response($rawBytes, 200, [
+                    'Content-Type' => $mime,
+                    'Content-Disposition' => 'inline; filename="' . $filename . '"',
+                ]);
+            }
+        } catch (Exception) {
+            // fallback
         }
 
         try {
@@ -733,6 +775,16 @@ class FileManagerController extends Controller
         } catch (Exception $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 400);
         }
+    }
+
+    protected function isAjaxOrJson(Request $request): bool
+    {
+        return $request->expectsJson()
+            || $request->wantsJson()
+            || $request->isJson()
+            || $request->ajax()
+            || str_contains((string) $request->header('Accept'), 'application/json')
+            || str_contains((string) $request->header('Content-Type'), 'application/json');
     }
 
     protected function logActivity(Request $request, string $action, string $resourceId, string $status = 'success', array $payload = []): void

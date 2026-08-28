@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1054,21 +1055,31 @@ func (r *Router) handleFileRead(w http.ResponseWriter, req *http.Request) {
 		BasePath     string `json:"base_path"`
 		RelativePath string `json:"relative_path"`
 		MaxBytes     int64  `json:"max_bytes"`
+		AsBase64     bool   `json:"as_base64"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
 		return
 	}
 
-	content, err := r.fileManager.ReadFile(payload.BasePath, payload.RelativePath, payload.MaxBytes)
+	data, err := r.fileManager.ReadFileBytes(payload.BasePath, payload.RelativePath, payload.MaxBytes)
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "READ_FAILED", err.Error())
 		return
 	}
 
+	if payload.AsBase64 {
+		respondJSON(w, http.StatusOK, map[string]any{
+			"success":        true,
+			"content_base64": base64.StdEncoding.EncodeToString(data),
+			"size_bytes":     len(data),
+		})
+		return
+	}
+
 	respondJSON(w, http.StatusOK, map[string]any{
 		"success": true,
-		"content": content,
+		"content": string(data),
 	})
 }
 
@@ -1079,17 +1090,30 @@ func (r *Router) handleFileWrite(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var payload struct {
-		BasePath     string `json:"base_path"`
-		RelativePath string `json:"relative_path"`
-		Content      string `json:"content"`
+		BasePath      string `json:"base_path"`
+		RelativePath  string `json:"relative_path"`
+		Content       string `json:"content"`
+		ContentBase64 string `json:"content_base64"`
 	}
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
 		respondError(w, http.StatusBadRequest, "INVALID_PAYLOAD", "Invalid JSON payload")
 		return
 	}
 
-	if err := r.fileManager.WriteFile(payload.BasePath, payload.RelativePath, payload.Content); err != nil {
-		respondError(w, http.StatusBadRequest, "WRITE_FAILED", err.Error())
+	var writeErr error
+	if payload.ContentBase64 != "" {
+		bytesData, err := base64.StdEncoding.DecodeString(payload.ContentBase64)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "INVALID_BASE64", "Failed to decode base64 content")
+			return
+		}
+		writeErr = r.fileManager.WriteFileBytes(payload.BasePath, payload.RelativePath, bytesData)
+	} else {
+		writeErr = r.fileManager.WriteFile(payload.BasePath, payload.RelativePath, payload.Content)
+	}
+
+	if writeErr != nil {
+		respondError(w, http.StatusBadRequest, "WRITE_FAILED", writeErr.Error())
 		return
 	}
 
@@ -1471,10 +1495,29 @@ func (r *Router) handleFileDownload(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// Single file direct streaming
+	if len(payload.Paths) == 1 {
+		target, err := r.fileManager.SafePath(payload.BasePath, payload.Paths[0])
+		if err == nil {
+			if fi, err := os.Stat(target); err == nil && !fi.IsDir() {
+				filename := filepath.Base(target)
+				w.Header().Set("Content-Type", "application/octet-stream")
+				w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+				w.Header().Set("Content-Length", strconv.FormatInt(fi.Size(), 10))
+				f, err := os.Open(target)
+				if err == nil {
+					defer f.Close()
+					_, _ = io.Copy(w, f)
+					return
+				}
+			}
+		}
+	}
+
+	// Multiple files or folder: stream zip archive
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename=\"download.zip\"")
 	if err := r.fileManager.StreamArchive(payload.BasePath, payload.Paths, w); err != nil {
-		// Log error if header was already written
 		return
 	}
 }

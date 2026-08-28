@@ -308,20 +308,42 @@ class OperationsTest extends TestCase
         $searchRes->assertStatus(200);
         $searchRes->assertJsonStructure(['success', 'data']);
 
-        // 11. Delete
+        // 11. Upload file
+        $fakeFile = \Illuminate\Http\UploadedFile::fake()->create('avatar.png', 10, 'image/png');
+        $uploadRes = $this->actingAs($user)->post('/files/upload', [
+            'base_path' => '/var/www/filetest.com',
+            'relative_path' => 'public/images',
+            'files' => [$fakeFile],
+        ], ['Accept' => 'application/json']);
+        $uploadRes->assertStatus(200);
+        $uploadRes->assertJsonStructure(['success', 'uploaded']);
+
+        // 12. Preview file
+        $previewRes = $this->actingAs($user)->get('/files/preview?base_path=/var/www/filetest.com&relative_path=.env');
+        $previewRes->assertStatus(200);
+
+        // 13. Download file
+        $downloadRes = $this->actingAs($user)->get('/files/download?base_path=/var/www/filetest.com&relative_path=.env');
+        $downloadRes->assertStatus(200);
+
+        // 14. Delete
         $delRes = $this->actingAs($user)->postJson('/files/delete', [
             'base_path' => '/var/www/filetest.com',
             'relative_path' => 'archive.zip',
         ]);
         $delRes->assertStatus(200);
 
-        // 12. Verify Activity Logs were recorded
+        // 15. Verify Activity Logs were recorded
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'file.write',
             'resource_type' => 'file',
         ]);
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'file.create',
+            'resource_type' => 'file',
+        ]);
+        $this->assertDatabaseHas('activity_logs', [
+            'action' => 'file.upload',
             'resource_type' => 'file',
         ]);
         $this->assertDatabaseHas('activity_logs', [

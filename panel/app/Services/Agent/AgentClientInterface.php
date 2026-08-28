@@ -130,9 +130,19 @@ interface AgentClientInterface
     public function readFile(string $basePath, string $relativePath, int $maxBytes = 5242880): string;
 
     /**
+     * Read file binary content as base64.
+     */
+    public function readFileBase64(string $basePath, string $relativePath, int $maxBytes = 52428800): string;
+
+    /**
      * Write file content safely.
      */
     public function writeFile(string $basePath, string $relativePath, string $content): array;
+
+    /**
+     * Write binary file content via base64 safely.
+     */
+    public function writeFileBase64(string $basePath, string $relativePath, string $contentBase64): array;
 
     /**
      * Create an empty file.

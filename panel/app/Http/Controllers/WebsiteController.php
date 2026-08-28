@@ -91,7 +91,7 @@ class WebsiteController extends Controller
         $aliases = $validated['aliases'] ?? [];
 
         // Auto document root determination
-        if (empty($validated['document_root'])) {
+        if (empty($validated['document_root']) || ($projectType === 'laravel' && rtrim($validated['document_root'], '/') === "/var/www/{$domain}")) {
             if ($projectType === 'laravel') {
                 $docRoot = "/var/www/{$domain}/public";
             } else {

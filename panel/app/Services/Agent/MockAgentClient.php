@@ -744,7 +744,20 @@ class MockAgentClient implements AgentClientInterface
         return "APP_NAME=KodepreneurApp\nAPP_ENV=production\nAPP_DEBUG=false\nAPP_URL=https://example.com\n";
     }
 
+    public function readFileBase64(string $basePath, string $relativePath, int $maxBytes = 52428800): string
+    {
+        return base64_encode("APP_NAME=KodepreneurApp\nAPP_ENV=production\nAPP_DEBUG=false\nAPP_URL=https://example.com\n");
+    }
+
     public function writeFile(string $basePath, string $relativePath, string $content): array
+    {
+        return [
+            'success' => true,
+            'message' => "File written successfully",
+        ];
+    }
+
+    public function writeFileBase64(string $basePath, string $relativePath, string $contentBase64): array
     {
         return [
             'success' => true,

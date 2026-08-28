@@ -173,12 +173,33 @@ class HttpAgentClient implements AgentClientInterface
         return $res['content'] ?? '';
     }
 
+    public function readFileBase64(string $basePath, string $relativePath, int $maxBytes = 52428800): string
+    {
+        $res = $this->request('POST', '/api/v1/files/read', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+            'max_bytes' => $maxBytes,
+            'as_base64' => true,
+        ]);
+        return $res['content_base64'] ?? '';
+    }
+
     public function writeFile(string $basePath, string $relativePath, string $content): array
     {
         $res = $this->request('POST', '/api/v1/files/write', [
             'base_path' => $basePath,
             'relative_path' => $relativePath,
             'content' => $content,
+        ]);
+        return $res ?? [];
+    }
+
+    public function writeFileBase64(string $basePath, string $relativePath, string $contentBase64): array
+    {
+        $res = $this->request('POST', '/api/v1/files/write', [
+            'base_path' => $basePath,
+            'relative_path' => $relativePath,
+            'content_base64' => $contentBase64,
         ]);
         return $res ?? [];
     }

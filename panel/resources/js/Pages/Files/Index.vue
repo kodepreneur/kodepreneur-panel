@@ -196,6 +196,7 @@ async function fetchDirectory(relPath: string, addToHistory: boolean = true) {
         const res = await fetch('/files/browse', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': getCsrfToken(),
             },
@@ -452,7 +453,7 @@ async function handleCreateFile() {
     try {
         const res = await fetch('/files/create-file', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({ base_path: currentBasePath.value, relative_path: rel }),
         });
         const data = await res.json();
@@ -481,7 +482,7 @@ async function handleCreateFolder() {
     try {
         const res = await fetch('/files/create-folder', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({ base_path: currentBasePath.value, relative_path: rel }),
         });
         const data = await res.json();
@@ -516,7 +517,7 @@ async function handleRename() {
     try {
         const res = await fetch('/files/rename', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 old_path: oldRel,
@@ -557,7 +558,7 @@ async function handleCopyMove() {
     try {
         const res = await fetch(endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 sources: copyMoveItems.value,
@@ -594,7 +595,7 @@ async function handleDelete() {
     try {
         const res = await fetch('/files/delete', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 paths: deleteTargets.value,
@@ -633,7 +634,7 @@ async function handleCompress() {
     try {
         const res = await fetch('/files/compress', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 sources: compressSources.value,
@@ -669,7 +670,7 @@ async function handleExtract() {
     try {
         const res = await fetch('/files/extract', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 archive_path: extractTarget.value.path,
@@ -743,7 +744,7 @@ async function handleSavePermissions() {
     try {
         const res = await fetch('/files/chmod', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 relative_path: permissionsTarget.value.path,
@@ -773,7 +774,7 @@ async function openDetailsModal(entry?: FileEntry) {
     try {
         const res = await fetch('/files/stat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({ base_path: currentBasePath.value, relative_path: target.path }),
         });
         const data = await res.json();
@@ -853,6 +854,7 @@ async function uploadFiles(files: File[]) {
     try {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', '/files/upload', true);
+        xhr.setRequestHeader('Accept', 'application/json');
         xhr.setRequestHeader('X-CSRF-TOKEN', getCsrfToken());
 
         xhr.upload.onprogress = (e) => {
@@ -896,7 +898,9 @@ async function openPreview(entry: FileEntry) {
 
     if (isTextOrCodeFile(entry.name)) {
         try {
-            const res = await fetch(`/files/read?base_path=${encodeURIComponent(currentBasePath.value)}&relative_path=${encodeURIComponent(entry.path)}`);
+            const res = await fetch(`/files/read?base_path=${encodeURIComponent(currentBasePath.value)}&relative_path=${encodeURIComponent(entry.path)}`, {
+                headers: { 'Accept': 'application/json' },
+            });
             const data = await res.json();
             if (data.success) {
                 previewTextContent.value = data.content;
@@ -920,7 +924,9 @@ async function openEditor(entry: FileEntry) {
     closeContextMenu();
 
     try {
-        const res = await fetch(`/files/read?base_path=${encodeURIComponent(currentBasePath.value)}&relative_path=${encodeURIComponent(entry.path)}`);
+        const res = await fetch(`/files/read?base_path=${encodeURIComponent(currentBasePath.value)}&relative_path=${encodeURIComponent(entry.path)}`, {
+            headers: { 'Accept': 'application/json' },
+        });
         const data = await res.json();
         if (data.success) {
             editorContent.value = data.content;
@@ -945,7 +951,7 @@ async function saveEditorContent() {
     try {
         const res = await fetch('/files/write', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
+            headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': getCsrfToken() },
             body: JSON.stringify({
                 base_path: currentBasePath.value,
                 relative_path: editingFile.value.path,
