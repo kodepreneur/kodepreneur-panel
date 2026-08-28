@@ -104,7 +104,9 @@ if [ -d "${PANEL_DIR}" ]; then
     # Rebuild frontend if npm exists
     if command -v npm >/dev/null 2>&1; then
         echo -e "${COLOR_BLUE}  - Building frontend assets via Vite...${COLOR_RESET}"
-        npm install --silent >/dev/null 2>&1 || true
+        if [ ! -d "node_modules" ]; then
+            npm install --silent >/dev/null 2>&1 || true
+        fi
         npm run build >/dev/null 2>&1 || true
     fi
 
@@ -147,8 +149,12 @@ if [ -d "${PANEL_DIR}" ]; then
     done
 
     # Restart PHP-FPM runtimes to apply configuration & ensure sockets are alive
-    echo -e "${COLOR_BLUE}  - Restarting PHP-FPM runtimes...${COLOR_RESET}"
-    systemctl restart php8.4-fpm php8.3-fpm 2>/dev/null || true
+    if [ "$DAEMON_MODE" = false ]; then
+        echo -e "${COLOR_BLUE}  - Restarting PHP-FPM runtimes...${COLOR_RESET}"
+        systemctl restart php8.4-fpm php8.3-fpm 2>/dev/null || true
+    else
+        echo -e "${COLOR_GREEN}  ✓ PHP-FPM reload deferred to daemon background runner (zero-downtime).${COLOR_RESET}"
+    fi
 
     # Update panel Nginx configuration if present
     if [ -f "${PROJECT_ROOT}/installer/nginx/kodepreneur-panel.conf" ] && [ -f /etc/nginx/sites-available/kodepreneur-panel.conf ]; then

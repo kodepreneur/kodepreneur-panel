@@ -63,6 +63,19 @@ function getCsrfToken(): string {
     return '';
 }
 
+async function parseJsonResponse(res: Response): Promise<{ success: boolean; data?: any; message?: string; updateInfo?: any }> {
+    const text = await res.text();
+    try {
+        return JSON.parse(text);
+    } catch {
+        const plainText = text.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        return {
+            success: false,
+            message: `Server returned HTTP ${res.status} (${res.statusText || 'Error'}): ${plainText.substring(0, 180) || 'Non-JSON response'}`
+        };
+    }
+}
+
 async function checkForUpdates() {
     if (isChecking.value) return;
     isChecking.value = true;
@@ -71,13 +84,14 @@ async function checkForUpdates() {
         const res = await fetch('/updates/check', {
             method: 'POST',
             headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-TOKEN': token,
                 'X-XSRF-TOKEN': token,
             },
         });
-        const data = await res.json();
+        const data = await parseJsonResponse(res);
         if (data.success && data.updateInfo) {
             info.value = data.updateInfo;
         }
@@ -107,6 +121,7 @@ function startUpdate() {
     fetch('/updates/execute', {
         method: 'POST',
         headers: {
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
             'X-CSRF-TOKEN': token,
@@ -120,7 +135,7 @@ function startUpdate() {
         .then(async (res) => {
             clearInterval(timer);
             currentStep.value = totalSteps;
-            const json = await res.json();
+            const json = await parseJsonResponse(res);
 
             if (res.ok && json.success) {
                 updateSuccess.value = true;
@@ -128,7 +143,7 @@ function startUpdate() {
                 updateDuration.value = json.data?.duration_seconds || 1;
             } else {
                 updateSuccess.value = false;
-                updateError.value = json.message || 'Update failed during execution.';
+                updateError.value = json.message || `Update failed with HTTP ${res.status}.`;
                 updateLogs.value += `\n[error] ${updateError.value}`;
             }
         })

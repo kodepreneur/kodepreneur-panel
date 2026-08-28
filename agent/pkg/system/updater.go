@@ -182,11 +182,13 @@ func (u *UpdateRunner) Execute(req UpdateRequest) (*UpdateResult, error) {
 		commitMsg = strings.TrimSpace(string(msgOut))
 	}
 
-	// If successfully updated on a live server, schedule a graceful restart of kodepreneur-agent
-	// with a short delay so the current HTTP response is fully returned to the client before restart.
+	// If successfully updated on a live server, schedule a graceful reload of PHP-FPM and restart of kodepreneur-agent
+	// with a short delay so the current HTTP response is fully returned to the client before reload/restart.
 	if success && !u.isDev {
 		go func() {
-			time.Sleep(2 * time.Second)
+			time.Sleep(3 * time.Second)
+			_ = exec.Command("systemctl", "reload", "php8.4-fpm").Run()
+			_ = exec.Command("systemctl", "reload", "php8.3-fpm").Run()
 			_ = exec.Command("systemctl", "restart", "kodepreneur-agent").Run()
 		}()
 	}
