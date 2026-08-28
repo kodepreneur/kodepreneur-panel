@@ -12,13 +12,15 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(\App\Services\Agent\AgentClientInterface::class, function () {
-            if (config('services.agent.use_mock', env('KODEPRENEUR_AGENT_USE_MOCK', true))) {
+            $useMock = config('services.agent.use_mock', false);
+
+            if ($useMock) {
                 return new \App\Services\Agent\MockAgentClient();
             }
 
             return new \App\Services\Agent\HttpAgentClient(
-                baseUrl: (string) config('services.agent.host', env('KODEPRENEUR_AGENT_HOST', 'http://127.0.0.1:8765')),
-                secret: (string) config('services.agent.secret', env('KODEPRENEUR_AGENT_SECRET', 'kodepreneur-dev-secret-key-change-in-production'))
+                baseUrl: (string) config('services.agent.host', 'http://127.0.0.1:8443'),
+                secret: (string) config('services.agent.secret', 'kodepreneur-dev-secret-key-change-in-production')
             );
         });
     }

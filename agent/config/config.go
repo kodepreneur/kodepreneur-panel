@@ -59,7 +59,7 @@ func LoadConfig(path string) (*Config, error) {
 					val = strings.Trim(val, `"'`)
 
 					switch key {
-					case "listen_address":
+					case "listen_address", "host":
 						cfg.Server.ListenAddress = val
 					case "port":
 						if p, err := strconv.Atoi(val); err == nil {

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'agent' => [
+        'host' => env('AGENT_BASE_URL', env('KODEPRENEUR_AGENT_HOST', 'http://127.0.0.1:8443')),
+        'secret' => env('AGENT_SECRET_KEY', env('KODEPRENEUR_AGENT_SECRET', 'kodepreneur-dev-secret-key-change-in-production')),
+        'use_mock' => filter_var(env('AGENT_MOCK', env('KODEPRENEUR_AGENT_USE_MOCK', false)), FILTER_VALIDATE_BOOLEAN),
+    ],
+
 ];
+
