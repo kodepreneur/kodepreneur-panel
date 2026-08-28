@@ -279,4 +279,46 @@ func TestWebsiteDeploymentSources(t *testing.T) {
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("Expected 201 Created for flexible booleans payload, got %d: %s", rec.Code, rec.Body.String())
 	}
+
+	// 5. Create with Private Git Repo (SSH Key)
+	privateSshPayload := []byte(`{
+		"domain": "private-ssh-agent.com",
+		"php_version": "8.3",
+		"deployment_source": "git",
+		"git_repository": "git@github.com:example/private-repo.git",
+		"git_branch": "main",
+		"git_auth_type": "ssh_key",
+		"git_ssh_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... kodepreneur-deploy-key",
+		"git_ssh_private_key": "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+		"project_type": "laravel"
+	}`)
+	req = httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(privateSshPayload))
+	signRequest(req, privateSshPayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for private SSH git website, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// 6. Create with Private Git Repo (Token)
+	privateTokenPayload := []byte(`{
+		"domain": "private-token-agent.com",
+		"php_version": "8.4",
+		"deployment_source": "git",
+		"git_repository": "https://github.com/example/private-repo.git",
+		"git_branch": "production",
+		"git_auth_type": "token",
+		"git_token": "ghp_mock_token_123456",
+		"git_token_user": "x-access-token",
+		"project_type": "laravel"
+	}`)
+	req = httptest.NewRequest("POST", "/api/v1/websites", bytes.NewReader(privateTokenPayload))
+	signRequest(req, privateTokenPayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Expected 201 Created for private Token git website, got %d: %s", rec.Code, rec.Body.String())
+	}
 }

@@ -63,6 +63,10 @@ class DeploymentController extends Controller
                 'working_dir' => $workingDir,
                 'repository' => $website->git_repository ?: '',
                 'branch' => $branch,
+                'auth_type' => $website->git_auth_type ?: 'none',
+                'ssh_private_key' => $website->git_ssh_private_key ?: '',
+                'git_token' => $website->git_token ?: '',
+                'git_token_user' => $website->git_token_user ?: '',
                 'commands' => $commands,
                 'timeout_sec' => 600,
             ]);

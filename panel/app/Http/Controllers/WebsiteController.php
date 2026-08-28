@@ -43,6 +43,68 @@ class WebsiteController extends Controller
         return Inertia::render('Websites/Create');
     }
 
+    public function generateDeployKey(): JsonResponse
+    {
+        // 1. Try ssh-keygen for modern ed25519 key
+        $tempFile = tempnam(sys_get_temp_dir(), 'kp_key_');
+        @unlink($tempFile);
+        $cmd = "ssh-keygen -t ed25519 -N '' -C 'kodepreneur-deploy-key' -f " . escapeshellarg($tempFile) . " 2>&1";
+        @exec($cmd, $out, $ret);
+
+        if ($ret === 0 && file_exists($tempFile) && file_exists("{$tempFile}.pub")) {
+            $privateKey = file_get_contents($tempFile);
+            $publicKey = trim(file_get_contents("{$tempFile}.pub"));
+            @unlink($tempFile);
+            @unlink("{$tempFile}.pub");
+            return response()->json([
+                'success' => true,
+                'public_key' => $publicKey,
+                'private_key' => $privateKey,
+                'type' => 'ed25519',
+            ]);
+        }
+
+        // 2. Fallback to OpenSSL RSA-4096 if ssh-keygen is unavailable
+        $config = [
+            "digest_alg" => "sha512",
+            "private_key_bits" => 4096,
+            "private_key_type" => OPENSSL_KEYTYPE_RSA,
+        ];
+        $res = openssl_pkey_new($config);
+        if ($res) {
+            openssl_pkey_export($res, $privateKey);
+            $keyDetails = openssl_pkey_get_details($res);
+            $rsa = $keyDetails['rsa'] ?? [];
+            if (!empty($rsa['e']) && !empty($rsa['n'])) {
+                $buffer = pack('N', 7) . 'ssh-rsa' .
+                    self::sshEncodeBuffer($rsa['e']) .
+                    self::sshEncodeBuffer($rsa['n']);
+                $publicKey = 'ssh-rsa ' . base64_encode($buffer) . ' kodepreneur-deploy-key';
+                return response()->json([
+                    'success' => true,
+                    'public_key' => $publicKey,
+                    'private_key' => $privateKey,
+                    'type' => 'rsa',
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Unable to generate SSH key pair on this server.',
+        ], 500);
+    }
+
+    private static function sshEncodeBuffer(string $buffer): string
+    {
+        $len = strlen($buffer);
+        if (ord($buffer[0]) & 0x80) {
+            $len++;
+            $buffer = "\x00" . $buffer;
+        }
+        return pack('Na*', $len, $buffer);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         @set_time_limit(600);
@@ -57,6 +119,11 @@ class WebsiteController extends Controller
             'document_root' => ['nullable', 'string', 'max:255'],
             'git_repository' => ['required_if:deployment_source,git', 'nullable', 'string', 'max:255'],
             'git_branch' => ['nullable', 'string', 'max:100'],
+            'git_auth_type' => ['nullable', 'string', 'in:none,ssh_key,token'],
+            'git_token' => ['nullable', 'string', 'max:500'],
+            'git_token_user' => ['nullable', 'string', 'max:100'],
+            'git_ssh_private_key' => ['nullable', 'string'],
+            'git_ssh_public_key' => ['nullable', 'string'],
             'zip_file' => ['required_if:deployment_source,zip', 'nullable', 'file', 'mimes:zip', 'max:524288'],
             'aliases' => ['nullable', 'array'],
             'aliases.*' => ['string', 'max:255'],
@@ -86,6 +153,11 @@ class WebsiteController extends Controller
         $projectType = $validated['project_type'] ?? 'laravel';
         $gitRepo = $validated['git_repository'] ?? null;
         $gitBranch = !empty($validated['git_branch']) ? $validated['git_branch'] : 'main';
+        $gitAuthType = $validated['git_auth_type'] ?? 'none';
+        $gitToken = $validated['git_token'] ?? null;
+        $gitTokenUser = $validated['git_token_user'] ?? null;
+        $gitSshPrivateKey = $validated['git_ssh_private_key'] ?? null;
+        $gitSshPublicKey = $validated['git_ssh_public_key'] ?? null;
         $domainSlug = Str::slug(explode('.', $domain)[0], '_');
         $systemUser = 'kp_' . $domainSlug;
 
@@ -226,6 +298,11 @@ class WebsiteController extends Controller
                 'project_type' => (string) $projectType,
                 'git_repository' => $gitRepo ? (string) $gitRepo : '',
                 'git_branch' => (string) $gitBranch,
+                'git_auth_type' => (string) $gitAuthType,
+                'git_token' => $gitToken ? (string) $gitToken : '',
+                'git_token_user' => $gitTokenUser ? (string) $gitTokenUser : '',
+                'git_ssh_private_key' => $gitSshPrivateKey ? (string) $gitSshPrivateKey : '',
+                'git_ssh_public_key' => $gitSshPublicKey ? (string) $gitSshPublicKey : '',
                 'laravel_setup' => $laravelSetup,
             ];
 
@@ -252,6 +329,11 @@ class WebsiteController extends Controller
                 'project_type' => $projectType,
                 'git_repository' => $gitRepo,
                 'git_branch' => $gitBranch,
+                'git_auth_type' => $gitAuthType,
+                'git_token' => $gitToken,
+                'git_token_user' => $gitTokenUser,
+                'git_ssh_private_key' => $gitSshPrivateKey,
+                'git_ssh_public_key' => $gitSshPublicKey,
                 'last_deployed_at' => in_array($deploymentSource, ['zip', 'git']) ? now() : null,
             ]);
 

@@ -1,8 +1,9 @@
 /// <reference types="../../../../node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
 import { ref } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Globe, ArrowLeft, Plus, Shield, Folder, FolderPlus, Sparkles, CheckCircle2, GitBranch, UploadCloud, FileArchive, Trash2, Info, Database, Key, RefreshCw, Eye, EyeOff, Copy, Check, } from 'lucide-vue-next';
+import { Globe, ArrowLeft, Plus, Shield, Folder, FolderPlus, Sparkles, CheckCircle2, GitBranch, UploadCloud, FileArchive, Trash2, Info, Database, Key, RefreshCw, Eye, EyeOff, Copy, Check, Lock, Unlock, Code, } from 'lucide-vue-next';
 function generateRandomPassword() {
     const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
     let pass = '';
@@ -13,6 +14,13 @@ function generateRandomPassword() {
 }
 const showDbPassword = ref(false);
 const copiedDbPassword = ref(false);
+const isPrivateRepo = ref(false);
+const gitAuthType = ref('ssh_key');
+const isGeneratingKey = ref(false);
+const showCustomPrivateKey = ref(false);
+const showGitToken = ref(false);
+const copiedDeployKey = ref(false);
+const keyGenError = ref('');
 const form = useForm({
     domain: '',
     php_version: '8.3',
@@ -21,6 +29,11 @@ const form = useForm({
     document_root: '',
     git_repository: '',
     git_branch: 'main',
+    git_auth_type: 'none',
+    git_token: '',
+    git_token_user: '',
+    git_ssh_private_key: '',
+    git_ssh_public_key: '',
     zip_file: null,
     auto_ssl: false,
     ssl_email: '',
@@ -40,6 +53,70 @@ const form = useForm({
     run_npm_build: true,
     run_optimize: true,
 });
+async function fetchDeployKey() {
+    if (form.git_ssh_public_key && form.git_ssh_private_key)
+        return;
+    isGeneratingKey.value = true;
+    keyGenError.value = '';
+    try {
+        const res = await axios.post('/websites/deploy-key/generate');
+        if (res.data && res.data.public_key) {
+            form.git_ssh_public_key = res.data.public_key;
+            form.git_ssh_private_key = res.data.private_key;
+        }
+    }
+    catch (e) {
+        keyGenError.value = e.response?.data?.message || 'Failed to generate SSH Deploy Key';
+    }
+    finally {
+        isGeneratingKey.value = false;
+    }
+}
+async function regenerateDeployKey() {
+    isGeneratingKey.value = true;
+    keyGenError.value = '';
+    try {
+        const res = await axios.post('/websites/deploy-key/generate');
+        if (res.data && res.data.public_key) {
+            form.git_ssh_public_key = res.data.public_key;
+            form.git_ssh_private_key = res.data.private_key;
+        }
+    }
+    catch (e) {
+        keyGenError.value = e.response?.data?.message || 'Failed to generate SSH Deploy Key';
+    }
+    finally {
+        isGeneratingKey.value = false;
+    }
+}
+function copyDeployKey() {
+    if (!form.git_ssh_public_key)
+        return;
+    navigator.clipboard.writeText(form.git_ssh_public_key);
+    copiedDeployKey.value = true;
+    setTimeout(() => {
+        copiedDeployKey.value = false;
+    }, 2000);
+}
+function togglePrivateRepo(isPrivate) {
+    isPrivateRepo.value = isPrivate;
+    if (isPrivate) {
+        form.git_auth_type = gitAuthType.value;
+        if (form.git_auth_type === 'ssh_key') {
+            fetchDeployKey();
+        }
+    }
+    else {
+        form.git_auth_type = 'none';
+    }
+}
+function setGitAuthType(type) {
+    gitAuthType.value = type;
+    form.git_auth_type = type;
+    if (type === 'ssh_key') {
+        fetchDeployKey();
+    }
+}
 const isDragging = ref(false);
 const fileInputRef = ref(null);
 function updateDomainDerivedFields() {
@@ -522,8 +599,231 @@ if (__VLS_ctx.form.deployment_source === 'zip') {
 }
 if (__VLS_ctx.form.deployment_source === 'git') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-        ...{ class: "space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-surface-950/50 border border-slate-200/80 dark:border-surface-800/80" },
+        ...{ class: "space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-surface-950/50 border border-slate-200/80 dark:border-surface-800/80" },
     });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+        ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-2 flex items-center justify-between" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+        ...{ class: "text-rose-500" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+        ...{ class: "text-[11px] text-slate-400 dark:text-surface-500 font-normal" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "grid grid-cols-1 sm:grid-cols-2 gap-2.5" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+        ...{ onClick: (...[$event]) => {
+                if (!(__VLS_ctx.form.deployment_source === 'git'))
+                    return;
+                __VLS_ctx.togglePrivateRepo(false);
+            } },
+        type: "button",
+        ...{ class: ([
+                'px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition',
+                !__VLS_ctx.isPrivateRepo
+                    ? 'bg-white dark:bg-surface-900 border-brand-500 ring-1 ring-brand-500 text-slate-900 dark:text-white shadow-sm'
+                    : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+            ]) },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "flex items-center gap-2.5" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" },
+    });
+    const __VLS_52 = {}.Unlock;
+    /** @type {[typeof __VLS_components.Unlock, ]} */ ;
+    // @ts-ignore
+    const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+        ...{ class: "w-4 h-4" },
+    }));
+    const __VLS_54 = __VLS_53({
+        ...{ class: "w-4 h-4" },
+    }, ...__VLS_functionalComponentArgsRest(__VLS_53));
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+        ...{ class: "text-xs font-bold" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+        ...{ class: "text-[10px] text-slate-500 dark:text-surface-500" },
+    });
+    if (!__VLS_ctx.isPrivateRepo) {
+        const __VLS_56 = {}.CheckCircle2;
+        /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
+        // @ts-ignore
+        const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }));
+        const __VLS_58 = __VLS_57({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_57));
+    }
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+        ...{ onClick: (...[$event]) => {
+                if (!(__VLS_ctx.form.deployment_source === 'git'))
+                    return;
+                __VLS_ctx.togglePrivateRepo(true);
+            } },
+        type: "button",
+        ...{ class: ([
+                'px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition',
+                __VLS_ctx.isPrivateRepo
+                    ? 'bg-white dark:bg-surface-900 border-brand-500 ring-1 ring-brand-500 text-slate-900 dark:text-white shadow-sm'
+                    : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+            ]) },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "flex items-center gap-2.5" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+        ...{ class: "p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+    });
+    const __VLS_60 = {}.Lock;
+    /** @type {[typeof __VLS_components.Lock, ]} */ ;
+    // @ts-ignore
+    const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
+        ...{ class: "w-4 h-4" },
+    }));
+    const __VLS_62 = __VLS_61({
+        ...{ class: "w-4 h-4" },
+    }, ...__VLS_functionalComponentArgsRest(__VLS_61));
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+        ...{ class: "text-xs font-bold" },
+    });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+        ...{ class: "text-[10px] text-slate-500 dark:text-surface-500" },
+    });
+    if (__VLS_ctx.isPrivateRepo) {
+        const __VLS_64 = {}.CheckCircle2;
+        /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
+        // @ts-ignore
+        const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }));
+        const __VLS_66 = __VLS_65({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_65));
+    }
+    if (__VLS_ctx.isPrivateRepo) {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "space-y-3 pt-1 border-t border-slate-200/80 dark:border-surface-800/80" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+            ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1 flex items-center justify-between" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-[11px] text-brand-600 dark:text-brand-400 font-medium" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "grid grid-cols-1 sm:grid-cols-2 gap-2.5" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+            ...{ class: ([
+                    'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                    __VLS_ctx.form.git_auth_type === 'ssh_key'
+                        ? 'bg-brand-50/80 border-brand-500 text-slate-900 dark:bg-brand-500/10 dark:text-white ring-1 ring-brand-500'
+                        : 'bg-white dark:bg-surface-900 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                ]) },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "flex items-center gap-2.5" },
+        });
+        const __VLS_68 = {}.Key;
+        /** @type {[typeof __VLS_components.Key, ]} */ ;
+        // @ts-ignore
+        const __VLS_69 = __VLS_asFunctionalComponent(__VLS_68, new __VLS_68({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }));
+        const __VLS_70 = __VLS_69({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_69));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "text-xs font-bold text-slate-900 dark:text-white" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "text-[10px] text-slate-500 dark:text-surface-400" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
+            ...{ onChange: (...[$event]) => {
+                    if (!(__VLS_ctx.form.deployment_source === 'git'))
+                        return;
+                    if (!(__VLS_ctx.isPrivateRepo))
+                        return;
+                    __VLS_ctx.setGitAuthType('ssh_key');
+                } },
+            type: "radio",
+            checked: (__VLS_ctx.form.git_auth_type === 'ssh_key'),
+            ...{ class: "sr-only" },
+        });
+        if (__VLS_ctx.form.git_auth_type === 'ssh_key') {
+            const __VLS_72 = {}.CheckCircle2;
+            /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
+            // @ts-ignore
+            const __VLS_73 = __VLS_asFunctionalComponent(__VLS_72, new __VLS_72({
+                ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+            }));
+            const __VLS_74 = __VLS_73({
+                ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+            }, ...__VLS_functionalComponentArgsRest(__VLS_73));
+        }
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+            ...{ class: ([
+                    'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                    __VLS_ctx.form.git_auth_type === 'token'
+                        ? 'bg-brand-50/80 border-brand-500 text-slate-900 dark:bg-brand-500/10 dark:text-white ring-1 ring-brand-500'
+                        : 'bg-white dark:bg-surface-900 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                ]) },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "flex items-center gap-2.5" },
+        });
+        const __VLS_76 = {}.Code;
+        /** @type {[typeof __VLS_components.Code, ]} */ ;
+        // @ts-ignore
+        const __VLS_77 = __VLS_asFunctionalComponent(__VLS_76, new __VLS_76({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }));
+        const __VLS_78 = __VLS_77({
+            ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_77));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "text-xs font-bold text-slate-900 dark:text-white" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "text-[10px] text-slate-500 dark:text-surface-400" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
+            ...{ onChange: (...[$event]) => {
+                    if (!(__VLS_ctx.form.deployment_source === 'git'))
+                        return;
+                    if (!(__VLS_ctx.isPrivateRepo))
+                        return;
+                    __VLS_ctx.setGitAuthType('token');
+                } },
+            type: "radio",
+            checked: (__VLS_ctx.form.git_auth_type === 'token'),
+            ...{ class: "sr-only" },
+        });
+        if (__VLS_ctx.form.git_auth_type === 'token') {
+            const __VLS_80 = {}.CheckCircle2;
+            /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
+            // @ts-ignore
+            const __VLS_81 = __VLS_asFunctionalComponent(__VLS_80, new __VLS_80({
+                ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+            }));
+            const __VLS_82 = __VLS_81({
+                ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
+            }, ...__VLS_functionalComponentArgsRest(__VLS_81));
+        }
+    }
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "grid grid-cols-1 sm:grid-cols-3 gap-3" },
     });
@@ -531,28 +831,39 @@ if (__VLS_ctx.form.deployment_source === 'git') {
         ...{ class: "sm:col-span-2" },
     });
     __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
-        ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5" },
+        ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between" },
     });
+    __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-rose-500" },
     });
+    if (__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'ssh_key') {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-[10px] font-mono text-brand-600 dark:text-brand-400" },
+        });
+    }
+    else {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-[10px] font-mono text-slate-400 dark:text-surface-500" },
+        });
+    }
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "relative" },
     });
-    const __VLS_52 = {}.GitBranch;
+    const __VLS_84 = {}.GitBranch;
     /** @type {[typeof __VLS_components.GitBranch, ]} */ ;
     // @ts-ignore
-    const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+    const __VLS_85 = __VLS_asFunctionalComponent(__VLS_84, new __VLS_84({
         ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" },
     }));
-    const __VLS_54 = __VLS_53({
+    const __VLS_86 = __VLS_85({
         ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_53));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_85));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
         value: (__VLS_ctx.form.git_repository),
         type: "text",
         required: true,
-        placeholder: "https://github.com/organization/repo.git",
+        placeholder: (__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'ssh_key' ? 'git@github.com:organization/private-repo.git' : 'https://github.com/organization/repo.git'),
         ...{ class: "w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono transition" },
     });
     if (__VLS_ctx.form.errors.git_repository) {
@@ -577,6 +888,248 @@ if (__VLS_ctx.form.deployment_source === 'git') {
         });
         (__VLS_ctx.form.errors.git_branch);
     }
+    if (__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'ssh_key') {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "space-y-3 p-4 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700/80 shadow-sm" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "flex items-center justify-between flex-wrap gap-2" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "flex items-center gap-2" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "p-1 rounded-md bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400" },
+        });
+        const __VLS_88 = {}.Key;
+        /** @type {[typeof __VLS_components.Key, ]} */ ;
+        // @ts-ignore
+        const __VLS_89 = __VLS_asFunctionalComponent(__VLS_88, new __VLS_88({
+            ...{ class: "w-3.5 h-3.5" },
+        }));
+        const __VLS_90 = __VLS_89({
+            ...{ class: "w-3.5 h-3.5" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_89));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-xs font-bold text-slate-900 dark:text-white" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-200/60 dark:border-emerald-500/20" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "flex items-center gap-2" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+            ...{ onClick: (__VLS_ctx.regenerateDeployKey) },
+            type: "button",
+            disabled: (__VLS_ctx.isGeneratingKey),
+            ...{ class: "px-2.5 py-1 text-[11px] font-medium rounded-lg text-slate-600 dark:text-surface-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-surface-800 transition flex items-center gap-1" },
+        });
+        const __VLS_92 = {}.RefreshCw;
+        /** @type {[typeof __VLS_components.RefreshCw, ]} */ ;
+        // @ts-ignore
+        const __VLS_93 = __VLS_asFunctionalComponent(__VLS_92, new __VLS_92({
+            ...{ class: (['w-3 h-3', __VLS_ctx.isGeneratingKey ? 'animate-spin' : '']) },
+        }));
+        const __VLS_94 = __VLS_93({
+            ...{ class: (['w-3 h-3', __VLS_ctx.isGeneratingKey ? 'animate-spin' : '']) },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_93));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+            ...{ onClick: (__VLS_ctx.copyDeployKey) },
+            type: "button",
+            ...{ class: "px-3 py-1 text-[11px] font-semibold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition flex items-center gap-1.5 shadow-sm" },
+        });
+        if (__VLS_ctx.copiedDeployKey) {
+            const __VLS_96 = {}.Check;
+            /** @type {[typeof __VLS_components.Check, ]} */ ;
+            // @ts-ignore
+            const __VLS_97 = __VLS_asFunctionalComponent(__VLS_96, new __VLS_96({
+                ...{ class: "w-3 h-3 text-emerald-200" },
+            }));
+            const __VLS_98 = __VLS_97({
+                ...{ class: "w-3 h-3 text-emerald-200" },
+            }, ...__VLS_functionalComponentArgsRest(__VLS_97));
+        }
+        else {
+            const __VLS_100 = {}.Copy;
+            /** @type {[typeof __VLS_components.Copy, ]} */ ;
+            // @ts-ignore
+            const __VLS_101 = __VLS_asFunctionalComponent(__VLS_100, new __VLS_100({
+                ...{ class: "w-3 h-3" },
+            }));
+            const __VLS_102 = __VLS_101({
+                ...{ class: "w-3 h-3" },
+            }, ...__VLS_functionalComponentArgsRest(__VLS_101));
+        }
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        (__VLS_ctx.copiedDeployKey ? 'Copied!' : 'Copy Public Key');
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "relative" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.textarea, __VLS_intrinsicElements.textarea)({
+            ...{ onClick: (...[$event]) => {
+                    if (!(__VLS_ctx.form.deployment_source === 'git'))
+                        return;
+                    if (!(__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'ssh_key'))
+                        return;
+                    $event.target.select();
+                } },
+            value: (__VLS_ctx.form.git_ssh_public_key || (__VLS_ctx.isGeneratingKey ? 'Generating OpenSSH key pair...' : 'No public key generated yet.')),
+            readonly: true,
+            rows: "3",
+            ...{ class: "w-full px-3 py-2 rounded-lg bg-slate-900 text-slate-200 font-mono text-[11px] border border-slate-800 focus:outline-none select-all resize-none leading-relaxed" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "p-3 rounded-lg bg-slate-50 dark:bg-surface-950/60 border border-slate-200/80 dark:border-surface-800 space-y-1.5 text-[11px] text-slate-600 dark:text-surface-400" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "font-semibold text-slate-800 dark:text-surface-200 flex items-center gap-1.5" },
+        });
+        const __VLS_104 = {}.Info;
+        /** @type {[typeof __VLS_components.Info, ]} */ ;
+        // @ts-ignore
+        const __VLS_105 = __VLS_asFunctionalComponent(__VLS_104, new __VLS_104({
+            ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
+        }));
+        const __VLS_106 = __VLS_105({
+            ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_105));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.ul, __VLS_intrinsicElements.ul)({
+            ...{ class: "list-disc list-inside space-y-0.5 text-[10.5px] pl-1" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.strong, __VLS_intrinsicElements.strong)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-slate-700 dark:text-surface-300 font-medium" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.strong, __VLS_intrinsicElements.strong)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-slate-700 dark:text-surface-300 font-medium" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.li, __VLS_intrinsicElements.li)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.strong, __VLS_intrinsicElements.strong)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-slate-700 dark:text-surface-300 font-medium" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "pt-1" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+            ...{ onClick: (...[$event]) => {
+                    if (!(__VLS_ctx.form.deployment_source === 'git'))
+                        return;
+                    if (!(__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'ssh_key'))
+                        return;
+                    __VLS_ctx.showCustomPrivateKey = !__VLS_ctx.showCustomPrivateKey;
+                } },
+            type: "button",
+            ...{ class: "text-[11px] text-slate-500 hover:text-brand-600 dark:text-surface-400 dark:hover:text-brand-400 font-medium flex items-center gap-1" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        (__VLS_ctx.showCustomPrivateKey ? 'Hide custom private key' : 'Paste custom private key instead (advanced)');
+        if (__VLS_ctx.showCustomPrivateKey) {
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+                ...{ class: "mt-2 space-y-1.5" },
+            });
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+                ...{ class: "block text-[11px] font-semibold text-slate-700 dark:text-surface-300" },
+            });
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.textarea, __VLS_intrinsicElements.textarea)({
+                value: (__VLS_ctx.form.git_ssh_private_key),
+                rows: "4",
+                placeholder: "-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----",
+                ...{ class: "w-full px-3 py-2 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700 font-mono text-[11px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40" },
+            });
+        }
+    }
+    if (__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'token') {
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "space-y-3 p-4 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700/80 shadow-sm" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+            ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-rose-500" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+            ...{ onClick: (...[$event]) => {
+                    if (!(__VLS_ctx.form.deployment_source === 'git'))
+                        return;
+                    if (!(__VLS_ctx.isPrivateRepo && __VLS_ctx.form.git_auth_type === 'token'))
+                        return;
+                    __VLS_ctx.showGitToken = !__VLS_ctx.showGitToken;
+                } },
+            type: "button",
+            ...{ class: "text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-surface-300 flex items-center gap-1" },
+        });
+        const __VLS_108 = ((__VLS_ctx.showGitToken ? __VLS_ctx.EyeOff : __VLS_ctx.Eye));
+        // @ts-ignore
+        const __VLS_109 = __VLS_asFunctionalComponent(__VLS_108, new __VLS_108({
+            ...{ class: "w-3 h-3" },
+        }));
+        const __VLS_110 = __VLS_109({
+            ...{ class: "w-3 h-3" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_109));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        (__VLS_ctx.showGitToken ? 'Hide' : 'Show');
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
+            type: (__VLS_ctx.showGitToken ? 'text' : 'password'),
+            required: true,
+            placeholder: "ghp_xxxxxxxxxxxx or glpat-xxxxxxxxxxxx",
+            ...{ class: "w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40" },
+        });
+        (__VLS_ctx.form.git_token);
+        if (__VLS_ctx.form.errors.git_token) {
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+                ...{ class: "text-[11px] text-rose-500 mt-1.5" },
+            });
+            (__VLS_ctx.form.errors.git_token);
+        }
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
+            ...{ class: "block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
+            ...{ class: "text-[10px] text-slate-400 font-normal" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
+            value: (__VLS_ctx.form.git_token_user),
+            type: "text",
+            placeholder: "e.g. x-access-token or username",
+            ...{ class: "w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "text-[10px] text-slate-400 dark:text-surface-500 mt-1" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.code, __VLS_intrinsicElements.code)({
+            ...{ class: "font-mono" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.code, __VLS_intrinsicElements.code)({
+            ...{ class: "font-mono" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+            ...{ class: "p-3 rounded-lg bg-slate-50 dark:bg-surface-950/60 border border-slate-200/80 dark:border-surface-800 text-[10.5px] text-slate-500 dark:text-surface-400 space-y-1" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+            ...{ class: "font-semibold text-slate-700 dark:text-surface-300" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({});
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.strong, __VLS_intrinsicElements.strong)({
+            ...{ class: "text-slate-800 dark:text-surface-200" },
+        });
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.strong, __VLS_intrinsicElements.strong)({
+            ...{ class: "text-slate-800 dark:text-surface-200" },
+        });
+    }
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
@@ -586,15 +1139,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "text-[11px] text-brand-600 dark:text-brand-400 font-medium flex items-center gap-1" },
 });
-const __VLS_56 = {}.Sparkles;
+const __VLS_112 = {}.Sparkles;
 /** @type {[typeof __VLS_components.Sparkles, ]} */ ;
 // @ts-ignore
-const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
+const __VLS_113 = __VLS_asFunctionalComponent(__VLS_112, new __VLS_112({
     ...{ class: "w-3.5 h-3.5" },
 }));
-const __VLS_58 = __VLS_57({
+const __VLS_114 = __VLS_113({
     ...{ class: "w-3.5 h-3.5" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_57));
+}, ...__VLS_functionalComponentArgsRest(__VLS_113));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "grid grid-cols-1 sm:grid-cols-3 gap-3" },
 });
@@ -620,15 +1173,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
     ...{ class: "inline-block w-2 h-2 rounded-full bg-rose-500" },
 });
 if (__VLS_ctx.form.project_type === 'laravel') {
-    const __VLS_60 = {}.CheckCircle2;
+    const __VLS_116 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
+    const __VLS_117 = __VLS_asFunctionalComponent(__VLS_116, new __VLS_116({
         ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400" },
     }));
-    const __VLS_62 = __VLS_61({
+    const __VLS_118 = __VLS_117({
         ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_61));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_117));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -661,15 +1214,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
     ...{ class: "inline-block w-2 h-2 rounded-full bg-indigo-500" },
 });
 if (__VLS_ctx.form.project_type === 'generic_php') {
-    const __VLS_64 = {}.CheckCircle2;
+    const __VLS_120 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_65 = __VLS_asFunctionalComponent(__VLS_64, new __VLS_64({
+    const __VLS_121 = __VLS_asFunctionalComponent(__VLS_120, new __VLS_120({
         ...{ class: "w-4 h-4 text-indigo-600 dark:text-indigo-400" },
     }));
-    const __VLS_66 = __VLS_65({
+    const __VLS_122 = __VLS_121({
         ...{ class: "w-4 h-4 text-indigo-600 dark:text-indigo-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_65));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_121));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -696,15 +1249,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
     ...{ class: "inline-block w-2 h-2 rounded-full bg-cyan-500" },
 });
 if (__VLS_ctx.form.project_type === 'static') {
-    const __VLS_68 = {}.CheckCircle2;
+    const __VLS_124 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_69 = __VLS_asFunctionalComponent(__VLS_68, new __VLS_68({
+    const __VLS_125 = __VLS_asFunctionalComponent(__VLS_124, new __VLS_124({
         ...{ class: "w-4 h-4 text-cyan-600 dark:text-cyan-400" },
     }));
-    const __VLS_70 = __VLS_69({
+    const __VLS_126 = __VLS_125({
         ...{ class: "w-4 h-4 text-cyan-600 dark:text-cyan-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_69));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_125));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -713,15 +1266,15 @@ if (__VLS_ctx.form.project_type === 'laravel') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "mt-2.5 p-3 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/60 dark:border-rose-900/40 flex items-start gap-2.5" },
     });
-    const __VLS_72 = {}.Info;
+    const __VLS_128 = {}.Info;
     /** @type {[typeof __VLS_components.Info, ]} */ ;
     // @ts-ignore
-    const __VLS_73 = __VLS_asFunctionalComponent(__VLS_72, new __VLS_72({
+    const __VLS_129 = __VLS_asFunctionalComponent(__VLS_128, new __VLS_128({
         ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" },
     }));
-    const __VLS_74 = __VLS_73({
+    const __VLS_130 = __VLS_129({
         ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_73));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_129));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
         ...{ class: "text-[11px] text-rose-900 dark:text-rose-200 leading-relaxed" },
     });
@@ -764,15 +1317,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
 });
 (__VLS_ctx.form.php_version);
 if (__VLS_ctx.form.php_version === '8.3') {
-    const __VLS_76 = {}.CheckCircle2;
+    const __VLS_132 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_77 = __VLS_asFunctionalComponent(__VLS_76, new __VLS_76({
+    const __VLS_133 = __VLS_asFunctionalComponent(__VLS_132, new __VLS_132({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_78 = __VLS_77({
+    const __VLS_134 = __VLS_133({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_77));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_133));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -798,15 +1351,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
 });
 (__VLS_ctx.form.php_version);
 if (__VLS_ctx.form.php_version === '8.4') {
-    const __VLS_80 = {}.CheckCircle2;
+    const __VLS_136 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_81 = __VLS_asFunctionalComponent(__VLS_80, new __VLS_80({
+    const __VLS_137 = __VLS_asFunctionalComponent(__VLS_136, new __VLS_136({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_82 = __VLS_81({
+    const __VLS_138 = __VLS_137({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_81));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_137));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -832,15 +1385,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
 });
 (__VLS_ctx.form.php_version);
 if (__VLS_ctx.form.php_version === 'none') {
-    const __VLS_84 = {}.CheckCircle2;
+    const __VLS_140 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_85 = __VLS_asFunctionalComponent(__VLS_84, new __VLS_84({
+    const __VLS_141 = __VLS_asFunctionalComponent(__VLS_140, new __VLS_140({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_86 = __VLS_85({
+    const __VLS_142 = __VLS_141({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_85));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_141));
 }
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-2" },
@@ -863,15 +1416,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "relative" },
 });
-const __VLS_88 = {}.Folder;
+const __VLS_144 = {}.Folder;
 /** @type {[typeof __VLS_components.Folder, ]} */ ;
 // @ts-ignore
-const __VLS_89 = __VLS_asFunctionalComponent(__VLS_88, new __VLS_88({
+const __VLS_145 = __VLS_asFunctionalComponent(__VLS_144, new __VLS_144({
     ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" },
 }));
-const __VLS_90 = __VLS_89({
+const __VLS_146 = __VLS_145({
     ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_89));
+}, ...__VLS_functionalComponentArgsRest(__VLS_145));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
     value: (__VLS_ctx.form.document_root),
     type: "text",
@@ -902,15 +1455,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "p-2 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200 dark:border-brand-500/20 text-brand-600 dark:text-brand-400 mt-0.5" },
 });
-const __VLS_92 = {}.Database;
+const __VLS_148 = {}.Database;
 /** @type {[typeof __VLS_components.Database, ]} */ ;
 // @ts-ignore
-const __VLS_93 = __VLS_asFunctionalComponent(__VLS_92, new __VLS_92({
+const __VLS_149 = __VLS_asFunctionalComponent(__VLS_148, new __VLS_148({
     ...{ class: "w-4 h-4" },
 }));
-const __VLS_94 = __VLS_93({
+const __VLS_150 = __VLS_149({
     ...{ class: "w-4 h-4" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_93));
+}, ...__VLS_functionalComponentArgsRest(__VLS_149));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
     ...{ class: "text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2" },
@@ -972,15 +1525,15 @@ if (__VLS_ctx.form.create_database) {
     });
     (__VLS_ctx.form.db_engine);
     if (__VLS_ctx.form.db_engine === 'mysql') {
-        const __VLS_96 = {}.CheckCircle2;
+        const __VLS_152 = {}.CheckCircle2;
         /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
         // @ts-ignore
-        const __VLS_97 = __VLS_asFunctionalComponent(__VLS_96, new __VLS_96({
+        const __VLS_153 = __VLS_asFunctionalComponent(__VLS_152, new __VLS_152({
             ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
         }));
-        const __VLS_98 = __VLS_97({
+        const __VLS_154 = __VLS_153({
             ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_97));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_153));
     }
     __VLS_asFunctionalElement(__VLS_intrinsicElements.label, __VLS_intrinsicElements.label)({
         ...{ class: ([
@@ -1010,15 +1563,15 @@ if (__VLS_ctx.form.create_database) {
     });
     (__VLS_ctx.form.db_engine);
     if (__VLS_ctx.form.db_engine === 'postgresql') {
-        const __VLS_100 = {}.CheckCircle2;
+        const __VLS_156 = {}.CheckCircle2;
         /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
         // @ts-ignore
-        const __VLS_101 = __VLS_asFunctionalComponent(__VLS_100, new __VLS_100({
+        const __VLS_157 = __VLS_asFunctionalComponent(__VLS_156, new __VLS_156({
             ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
         }));
-        const __VLS_102 = __VLS_101({
+        const __VLS_158 = __VLS_157({
             ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_101));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_157));
     }
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "grid grid-cols-1 sm:grid-cols-2 gap-3" },
@@ -1070,15 +1623,15 @@ if (__VLS_ctx.form.create_database) {
         type: "button",
         ...{ class: "text-[10px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-medium" },
     });
-    const __VLS_104 = {}.RefreshCw;
+    const __VLS_160 = {}.RefreshCw;
     /** @type {[typeof __VLS_components.RefreshCw, ]} */ ;
     // @ts-ignore
-    const __VLS_105 = __VLS_asFunctionalComponent(__VLS_104, new __VLS_104({
+    const __VLS_161 = __VLS_asFunctionalComponent(__VLS_160, new __VLS_160({
         ...{ class: "w-3 h-3" },
     }));
-    const __VLS_106 = __VLS_105({
+    const __VLS_162 = __VLS_161({
         ...{ class: "w-3 h-3" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_105));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_161));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-slate-300 dark:text-surface-700" },
@@ -1088,28 +1641,28 @@ if (__VLS_ctx.form.create_database) {
         type: "button",
         ...{ class: "text-[10px] text-slate-600 dark:text-surface-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1 font-medium" },
     });
-    const __VLS_108 = ((__VLS_ctx.copiedDbPassword ? __VLS_ctx.Check : __VLS_ctx.Copy));
+    const __VLS_164 = ((__VLS_ctx.copiedDbPassword ? __VLS_ctx.Check : __VLS_ctx.Copy));
     // @ts-ignore
-    const __VLS_109 = __VLS_asFunctionalComponent(__VLS_108, new __VLS_108({
+    const __VLS_165 = __VLS_asFunctionalComponent(__VLS_164, new __VLS_164({
         ...{ class: "w-3 h-3 text-emerald-500" },
     }));
-    const __VLS_110 = __VLS_109({
+    const __VLS_166 = __VLS_165({
         ...{ class: "w-3 h-3 text-emerald-500" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_109));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_165));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     (__VLS_ctx.copiedDbPassword ? 'Copied!' : 'Copy');
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "relative" },
     });
-    const __VLS_112 = {}.Key;
+    const __VLS_168 = {}.Key;
     /** @type {[typeof __VLS_components.Key, ]} */ ;
     // @ts-ignore
-    const __VLS_113 = __VLS_asFunctionalComponent(__VLS_112, new __VLS_112({
+    const __VLS_169 = __VLS_asFunctionalComponent(__VLS_168, new __VLS_168({
         ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3 top-1/2 -translate-y-1/2" },
     }));
-    const __VLS_114 = __VLS_113({
+    const __VLS_170 = __VLS_169({
         ...{ class: "w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3 top-1/2 -translate-y-1/2" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_113));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_169));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
         type: (__VLS_ctx.showDbPassword ? 'text' : 'password'),
         required: true,
@@ -1125,14 +1678,14 @@ if (__VLS_ctx.form.create_database) {
         type: "button",
         ...{ class: "absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white" },
     });
-    const __VLS_116 = ((__VLS_ctx.showDbPassword ? __VLS_ctx.EyeOff : __VLS_ctx.Eye));
+    const __VLS_172 = ((__VLS_ctx.showDbPassword ? __VLS_ctx.EyeOff : __VLS_ctx.Eye));
     // @ts-ignore
-    const __VLS_117 = __VLS_asFunctionalComponent(__VLS_116, new __VLS_116({
+    const __VLS_173 = __VLS_asFunctionalComponent(__VLS_172, new __VLS_172({
         ...{ class: "w-3.5 h-3.5" },
     }));
-    const __VLS_118 = __VLS_117({
+    const __VLS_174 = __VLS_173({
         ...{ class: "w-3.5 h-3.5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_117));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_173));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
         ...{ class: "text-[10px] text-slate-500 dark:text-surface-400 mt-1" },
     });
@@ -1153,15 +1706,15 @@ if (__VLS_ctx.form.project_type === 'laravel') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "p-2 rounded-xl bg-rose-100 dark:bg-rose-500/20 border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 mt-0.5" },
     });
-    const __VLS_120 = {}.Sparkles;
+    const __VLS_176 = {}.Sparkles;
     /** @type {[typeof __VLS_components.Sparkles, ]} */ ;
     // @ts-ignore
-    const __VLS_121 = __VLS_asFunctionalComponent(__VLS_120, new __VLS_120({
+    const __VLS_177 = __VLS_asFunctionalComponent(__VLS_176, new __VLS_176({
         ...{ class: "w-4 h-4" },
     }));
-    const __VLS_122 = __VLS_121({
+    const __VLS_178 = __VLS_177({
         ...{ class: "w-4 h-4" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_121));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_177));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2" },
@@ -1310,15 +1863,15 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.d
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
     ...{ class: "text-xs font-semibold text-slate-900 dark:text-white flex items-center gap-1.5" },
 });
-const __VLS_124 = {}.Shield;
+const __VLS_180 = {}.Shield;
 /** @type {[typeof __VLS_components.Shield, ]} */ ;
 // @ts-ignore
-const __VLS_125 = __VLS_asFunctionalComponent(__VLS_124, new __VLS_124({
+const __VLS_181 = __VLS_asFunctionalComponent(__VLS_180, new __VLS_180({
     ...{ class: "w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" },
 }));
-const __VLS_126 = __VLS_125({
+const __VLS_182 = __VLS_181({
     ...{ class: "w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_125));
+}, ...__VLS_functionalComponentArgsRest(__VLS_181));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
     ...{ class: "text-[11px] text-slate-500 dark:text-surface-400 mt-0.5" },
@@ -1340,33 +1893,33 @@ if (__VLS_ctx.form.auto_ssl) {
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
     ...{ class: "flex items-center justify-end gap-3 pt-4 border-t border-slate-100 dark:border-surface-800" },
 });
-const __VLS_128 = {}.Link;
+const __VLS_184 = {}.Link;
 /** @type {[typeof __VLS_components.Link, typeof __VLS_components.Link, ]} */ ;
 // @ts-ignore
-const __VLS_129 = __VLS_asFunctionalComponent(__VLS_128, new __VLS_128({
+const __VLS_185 = __VLS_asFunctionalComponent(__VLS_184, new __VLS_184({
     href: "/websites",
     ...{ class: "px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-surface-400 dark:hover:text-white transition" },
 }));
-const __VLS_130 = __VLS_129({
+const __VLS_186 = __VLS_185({
     href: "/websites",
     ...{ class: "px-4 py-2 rounded-xl text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-surface-400 dark:hover:text-white transition" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_129));
-__VLS_131.slots.default;
-var __VLS_131;
+}, ...__VLS_functionalComponentArgsRest(__VLS_185));
+__VLS_187.slots.default;
+var __VLS_187;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
     type: "submit",
     disabled: (__VLS_ctx.form.processing),
     ...{ class: "px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 flex items-center gap-1.5 transition disabled:opacity-50" },
 });
-const __VLS_132 = {}.Plus;
+const __VLS_188 = {}.Plus;
 /** @type {[typeof __VLS_components.Plus, ]} */ ;
 // @ts-ignore
-const __VLS_133 = __VLS_asFunctionalComponent(__VLS_132, new __VLS_132({
+const __VLS_189 = __VLS_asFunctionalComponent(__VLS_188, new __VLS_188({
     ...{ class: "w-4 h-4" },
 }));
-const __VLS_134 = __VLS_133({
+const __VLS_190 = __VLS_189({
     ...{ class: "w-4 h-4" },
-}, ...__VLS_functionalComponentArgsRest(__VLS_133));
+}, ...__VLS_functionalComponentArgsRest(__VLS_189));
 __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
 (__VLS_ctx.form.processing ? 'Provisioning Server...' : 'Provision Website');
 var __VLS_2;
@@ -1663,12 +2216,131 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['mt-1.5']} */ ;
 /** @type {__VLS_StyleScopedClasses['space-y-4']} */ ;
 /** @type {__VLS_StyleScopedClasses['p-4']} */ ;
-/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['sm:p-5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-2xl']} */ ;
 /** @type {__VLS_StyleScopedClasses['bg-slate-50']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:bg-surface-950/50']} */ ;
 /** @type {__VLS_StyleScopedClasses['border']} */ ;
 /** @type {__VLS_StyleScopedClasses['border-slate-200/80']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:border-surface-800/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['block']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['mb-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-rose-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-normal']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid-cols-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['sm:grid-cols-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-emerald-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-emerald-500/10']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-emerald-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-emerald-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-bold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-amber-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-amber-500/10']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-amber-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-amber-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-bold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['pt-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-t']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-800/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['block']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['mb-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid-cols-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['sm:grid-cols-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-bold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['sr-only']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-bold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['sr-only']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
 /** @type {__VLS_StyleScopedClasses['grid']} */ ;
 /** @type {__VLS_StyleScopedClasses['grid-cols-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['sm:grid-cols-3']} */ ;
@@ -1680,7 +2352,18 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
 /** @type {__VLS_StyleScopedClasses['mb-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-rose-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-500']} */ ;
 /** @type {__VLS_StyleScopedClasses['relative']} */ ;
 /** @type {__VLS_StyleScopedClasses['w-4']} */ ;
 /** @type {__VLS_StyleScopedClasses['h-4']} */ ;
@@ -1741,6 +2424,271 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-rose-500']} */ ;
 /** @type {__VLS_StyleScopedClasses['mt-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-700/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex-wrap']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-md']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-brand-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-brand-500/10']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-bold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-0.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-emerald-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-emerald-500/10']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-emerald-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-emerald-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-emerald-200/60']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-emerald-500/20']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:bg-slate-100']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:bg-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:bg-brand-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-emerald-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['relative']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:outline-none']} */ ;
+/** @type {__VLS_StyleScopedClasses['select-all']} */ ;
+/** @type {__VLS_StyleScopedClasses['resize-none']} */ ;
+/** @type {__VLS_StyleScopedClasses['leading-relaxed']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-950/60']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['list-disc']} */ ;
+/** @type {__VLS_StyleScopedClasses['list-inside']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-0.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10.5px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['pl-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['pt-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:text-brand-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['block']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['placeholder-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:placeholder-surface-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:outline-none']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-brand-500/40']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-700/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['shadow-sm']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid']} */ ;
+/** @type {__VLS_StyleScopedClasses['grid-cols-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['sm:grid-cols-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['block']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['mb-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-rose-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:text-slate-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-950/60']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:outline-none']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-brand-500/40']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-rose-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['block']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['mb-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['justify-between']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-normal']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-full']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-950/60']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:outline-none']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-2']} */ ;
+/** @type {__VLS_StyleScopedClasses['focus:ring-brand-500/40']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-950/60']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['border-slate-200/80']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:border-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[10.5px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-300']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
 /** @type {__VLS_StyleScopedClasses['block']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
 /** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
@@ -2649,9 +3597,21 @@ const __VLS_self = (await import('vue')).defineComponent({
             EyeOff: EyeOff,
             Copy: Copy,
             Check: Check,
+            Lock: Lock,
+            Unlock: Unlock,
+            Code: Code,
             showDbPassword: showDbPassword,
             copiedDbPassword: copiedDbPassword,
+            isPrivateRepo: isPrivateRepo,
+            isGeneratingKey: isGeneratingKey,
+            showCustomPrivateKey: showCustomPrivateKey,
+            showGitToken: showGitToken,
+            copiedDeployKey: copiedDeployKey,
             form: form,
+            regenerateDeployKey: regenerateDeployKey,
+            copyDeployKey: copyDeployKey,
+            togglePrivateRepo: togglePrivateRepo,
+            setGitAuthType: setGitAuthType,
             isDragging: isDragging,
             fileInputRef: fileInputRef,
             updateDomainDerivedFields: updateDomainDerivedFields,

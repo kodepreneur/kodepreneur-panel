@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useForm, Link } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
     Globe,
@@ -25,6 +26,10 @@ import {
     Copy,
     Check,
     Terminal,
+    Lock,
+    Unlock,
+    ExternalLink,
+    Code,
 } from 'lucide-vue-next';
 
 function generateRandomPassword() {
@@ -39,6 +44,14 @@ function generateRandomPassword() {
 const showDbPassword = ref(false);
 const copiedDbPassword = ref(false);
 
+const isPrivateRepo = ref(false);
+const gitAuthType = ref<'ssh_key' | 'token'>('ssh_key');
+const isGeneratingKey = ref(false);
+const showCustomPrivateKey = ref(false);
+const showGitToken = ref(false);
+const copiedDeployKey = ref(false);
+const keyGenError = ref('');
+
 const form = useForm({
     domain: '',
     php_version: '8.3',
@@ -47,6 +60,11 @@ const form = useForm({
     document_root: '',
     git_repository: '',
     git_branch: 'main',
+    git_auth_type: 'none' as 'none' | 'ssh_key' | 'token',
+    git_token: '',
+    git_token_user: '',
+    git_ssh_private_key: '',
+    git_ssh_public_key: '',
     zip_file: null as File | null,
     auto_ssl: false,
     ssl_email: '',
@@ -68,6 +86,68 @@ const form = useForm({
     run_npm_build: true,
     run_optimize: true,
 });
+
+async function fetchDeployKey() {
+    if (form.git_ssh_public_key && form.git_ssh_private_key) return;
+    isGeneratingKey.value = true;
+    keyGenError.value = '';
+    try {
+        const res = await axios.post('/websites/deploy-key/generate');
+        if (res.data && res.data.public_key) {
+            form.git_ssh_public_key = res.data.public_key;
+            form.git_ssh_private_key = res.data.private_key;
+        }
+    } catch (e: any) {
+        keyGenError.value = e.response?.data?.message || 'Failed to generate SSH Deploy Key';
+    } finally {
+        isGeneratingKey.value = false;
+    }
+}
+
+async function regenerateDeployKey() {
+    isGeneratingKey.value = true;
+    keyGenError.value = '';
+    try {
+        const res = await axios.post('/websites/deploy-key/generate');
+        if (res.data && res.data.public_key) {
+            form.git_ssh_public_key = res.data.public_key;
+            form.git_ssh_private_key = res.data.private_key;
+        }
+    } catch (e: any) {
+        keyGenError.value = e.response?.data?.message || 'Failed to generate SSH Deploy Key';
+    } finally {
+        isGeneratingKey.value = false;
+    }
+}
+
+function copyDeployKey() {
+    if (!form.git_ssh_public_key) return;
+    navigator.clipboard.writeText(form.git_ssh_public_key);
+    copiedDeployKey.value = true;
+    setTimeout(() => {
+        copiedDeployKey.value = false;
+    }, 2000);
+}
+
+function togglePrivateRepo(isPrivate: boolean) {
+    isPrivateRepo.value = isPrivate;
+    if (isPrivate) {
+        form.git_auth_type = gitAuthType.value;
+        if (form.git_auth_type === 'ssh_key') {
+            fetchDeployKey();
+        }
+    } else {
+        form.git_auth_type = 'none';
+    }
+}
+
+function setGitAuthType(type: 'ssh_key' | 'token') {
+    gitAuthType.value = type;
+    form.git_auth_type = type;
+    if (type === 'ssh_key') {
+        fetchDeployKey();
+    }
+}
 
 const isDragging = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -354,11 +434,118 @@ function submit() {
                     </div>
 
                     <!-- Dynamic Details for Git Repo -->
-                    <div v-if="form.deployment_source === 'git'" class="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-surface-950/50 border border-slate-200/80 dark:border-surface-800/80">
+                    <div v-if="form.deployment_source === 'git'" class="space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-50 dark:bg-surface-950/50 border border-slate-200/80 dark:border-surface-800/80">
+                        <!-- Repository Access Selector: Public vs Private -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-2 flex items-center justify-between">
+                                <span>Repository Access & Privacy <span class="text-rose-500">*</span></span>
+                                <span class="text-[11px] text-slate-400 dark:text-surface-500 font-normal">Supports GitHub, GitLab, Bitbucket, & Custom Git</span>
+                            </label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <button
+                                    type="button"
+                                    @click="togglePrivateRepo(false)"
+                                    :class="[
+                                        'px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition',
+                                        !isPrivateRepo
+                                            ? 'bg-white dark:bg-surface-900 border-brand-500 ring-1 ring-brand-500 text-slate-900 dark:text-white shadow-sm'
+                                            : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                                    ]"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                            <Unlock class="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold">Public Repository</p>
+                                            <p class="text-[10px] text-slate-500 dark:text-surface-500">Open-source / publicly accessible repo</p>
+                                        </div>
+                                    </div>
+                                    <CheckCircle2 v-if="!isPrivateRepo" class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                </button>
+
+                                <button
+                                    type="button"
+                                    @click="togglePrivateRepo(true)"
+                                    :class="[
+                                        'px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition',
+                                        isPrivateRepo
+                                            ? 'bg-white dark:bg-surface-900 border-brand-500 ring-1 ring-brand-500 text-slate-900 dark:text-white shadow-sm'
+                                            : 'bg-white/60 dark:bg-surface-900/40 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                                    ]"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <div class="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                                            <Lock class="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <p class="text-xs font-bold">Private Repository</p>
+                                            <p class="text-[10px] text-slate-500 dark:text-surface-500">Authenticate with Deploy Key or Token</p>
+                                        </div>
+                                    </div>
+                                    <CheckCircle2 v-if="isPrivateRepo" class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Private Repo Authentication Sub-Options -->
+                        <div v-if="isPrivateRepo" class="space-y-3 pt-1 border-t border-slate-200/80 dark:border-surface-800/80">
+                            <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1 flex items-center justify-between">
+                                <span>Authentication Method</span>
+                                <span class="text-[11px] text-brand-600 dark:text-brand-400 font-medium">SSH Deploy Key recommended</span>
+                            </label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <label
+                                    :class="[
+                                        'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                                        form.git_auth_type === 'ssh_key'
+                                            ? 'bg-brand-50/80 border-brand-500 text-slate-900 dark:bg-brand-500/10 dark:text-white ring-1 ring-brand-500'
+                                            : 'bg-white dark:bg-surface-900 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                                    ]"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <Key class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-900 dark:text-white">SSH Deploy Key</p>
+                                            <p class="text-[10px] text-slate-500 dark:text-surface-400">Add public key to repository</p>
+                                        </div>
+                                    </div>
+                                    <input type="radio" :checked="form.git_auth_type === 'ssh_key'" @change="setGitAuthType('ssh_key')" class="sr-only" />
+                                    <CheckCircle2 v-if="form.git_auth_type === 'ssh_key'" class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                </label>
+
+                                <label
+                                    :class="[
+                                        'cursor-pointer rounded-xl border p-3 flex items-center justify-between transition',
+                                        form.git_auth_type === 'token'
+                                            ? 'bg-brand-50/80 border-brand-500 text-slate-900 dark:bg-brand-500/10 dark:text-white ring-1 ring-brand-500'
+                                            : 'bg-white dark:bg-surface-900 border-slate-200 dark:border-surface-800 text-slate-600 dark:text-surface-400 hover:border-slate-300 dark:hover:border-surface-700'
+                                    ]"
+                                >
+                                    <div class="flex items-center gap-2.5">
+                                        <Code class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-900 dark:text-white">Personal Access Token</p>
+                                            <p class="text-[10px] text-slate-500 dark:text-surface-400">HTTPS Token / PAT</p>
+                                        </div>
+                                    </div>
+                                    <input type="radio" :checked="form.git_auth_type === 'token'" @change="setGitAuthType('token')" class="sr-only" />
+                                    <CheckCircle2 v-if="form.git_auth_type === 'token'" class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Repo URL & Branch Inputs -->
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="sm:col-span-2">
-                                <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5">
-                                    Repository URL <span class="text-rose-500">*</span>
+                                <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between">
+                                    <span>Repository URL <span class="text-rose-500">*</span></span>
+                                    <span v-if="isPrivateRepo && form.git_auth_type === 'ssh_key'" class="text-[10px] font-mono text-brand-600 dark:text-brand-400">
+                                        git@...
+                                    </span>
+                                    <span v-else class="text-[10px] font-mono text-slate-400 dark:text-surface-500">
+                                        https://...
+                                    </span>
                                 </label>
                                 <div class="relative">
                                     <GitBranch class="w-4 h-4 text-slate-400 dark:text-surface-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -366,7 +553,7 @@ function submit() {
                                         v-model="form.git_repository"
                                         type="text"
                                         required
-                                        placeholder="https://github.com/organization/repo.git"
+                                        :placeholder="isPrivateRepo && form.git_auth_type === 'ssh_key' ? 'git@github.com:organization/private-repo.git' : 'https://github.com/organization/repo.git'"
                                         class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono transition"
                                     />
                                 </div>
@@ -384,6 +571,135 @@ function submit() {
                                     class="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40 font-mono transition"
                                 />
                                 <p v-if="form.errors.git_branch" class="text-[11px] text-rose-500 mt-1.5">{{ form.errors.git_branch }}</p>
+                            </div>
+                        </div>
+
+                        <!-- SSH Deploy Key Box -->
+                        <div v-if="isPrivateRepo && form.git_auth_type === 'ssh_key'" class="space-y-3 p-4 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700/80 shadow-sm">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="p-1 rounded-md bg-brand-50 dark:bg-brand-500/10 text-brand-600 dark:text-brand-400">
+                                        <Key class="w-3.5 h-3.5" />
+                                    </div>
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white">Generated Public Deploy Key</span>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium border border-emerald-200/60 dark:border-emerald-500/20">
+                                        Read-Only Access
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        @click="regenerateDeployKey"
+                                        :disabled="isGeneratingKey"
+                                        class="px-2.5 py-1 text-[11px] font-medium rounded-lg text-slate-600 dark:text-surface-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-surface-800 transition flex items-center gap-1"
+                                    >
+                                        <RefreshCw :class="['w-3 h-3', isGeneratingKey ? 'animate-spin' : '']" />
+                                        <span>Regenerate</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="copyDeployKey"
+                                        class="px-3 py-1 text-[11px] font-semibold rounded-lg bg-brand-600 hover:bg-brand-500 text-white transition flex items-center gap-1.5 shadow-sm"
+                                    >
+                                        <Check v-if="copiedDeployKey" class="w-3 h-3 text-emerald-200" />
+                                        <Copy v-else class="w-3 h-3" />
+                                        <span>{{ copiedDeployKey ? 'Copied!' : 'Copy Public Key' }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="relative">
+                                <textarea
+                                    :value="form.git_ssh_public_key || (isGeneratingKey ? 'Generating OpenSSH key pair...' : 'No public key generated yet.')"
+                                    readonly
+                                    rows="3"
+                                    class="w-full px-3 py-2 rounded-lg bg-slate-900 text-slate-200 font-mono text-[11px] border border-slate-800 focus:outline-none select-all resize-none leading-relaxed"
+                                    @click="($event.target as HTMLTextAreaElement).select()"
+                                ></textarea>
+                            </div>
+
+                            <!-- Provider Guide Badges -->
+                            <div class="p-3 rounded-lg bg-slate-50 dark:bg-surface-950/60 border border-slate-200/80 dark:border-surface-800 space-y-1.5 text-[11px] text-slate-600 dark:text-surface-400">
+                                <p class="font-semibold text-slate-800 dark:text-surface-200 flex items-center gap-1.5">
+                                    <Info class="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                                    How to add this deploy key to your Git provider:
+                                </p>
+                                <ul class="list-disc list-inside space-y-0.5 text-[10.5px] pl-1">
+                                    <li><strong>GitHub:</strong> Repository <span class="text-slate-700 dark:text-surface-300 font-medium">Settings &rarr; Deploy Keys &rarr; Add deploy key</span> (paste key, write access not needed).</li>
+                                    <li><strong>GitLab:</strong> Repository <span class="text-slate-700 dark:text-surface-300 font-medium">Settings &rarr; Repository &rarr; Deploy keys &rarr; Add key</span>.</li>
+                                    <li><strong>Bitbucket:</strong> Repository <span class="text-slate-700 dark:text-surface-300 font-medium">Repository settings &rarr; Access keys &rarr; Add key</span>.</li>
+                                </ul>
+                            </div>
+
+                            <!-- Advanced: Custom Private Key Toggle -->
+                            <div class="pt-1">
+                                <button
+                                    type="button"
+                                    @click="showCustomPrivateKey = !showCustomPrivateKey"
+                                    class="text-[11px] text-slate-500 hover:text-brand-600 dark:text-surface-400 dark:hover:text-brand-400 font-medium flex items-center gap-1"
+                                >
+                                    <span>{{ showCustomPrivateKey ? 'Hide custom private key' : 'Paste custom private key instead (advanced)' }}</span>
+                                </button>
+
+                                <div v-if="showCustomPrivateKey" class="mt-2 space-y-1.5">
+                                    <label class="block text-[11px] font-semibold text-slate-700 dark:text-surface-300">
+                                        Custom SSH Private Key (OpenSSH format)
+                                    </label>
+                                    <textarea
+                                        v-model="form.git_ssh_private_key"
+                                        rows="4"
+                                        placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"
+                                        class="w-full px-3 py-2 rounded-lg bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700 font-mono text-[11px] text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-surface-600 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                    ></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Personal Access Token Box -->
+                        <div v-if="isPrivateRepo && form.git_auth_type === 'token'" class="space-y-3 p-4 rounded-xl bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-700/80 shadow-sm">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between">
+                                        <span>Personal Access Token / PAT <span class="text-rose-500">*</span></span>
+                                        <button
+                                            type="button"
+                                            @click="showGitToken = !showGitToken"
+                                            class="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-surface-300 flex items-center gap-1"
+                                        >
+                                            <component :is="showGitToken ? EyeOff : Eye" class="w-3 h-3" />
+                                            <span>{{ showGitToken ? 'Hide' : 'Show' }}</span>
+                                        </button>
+                                    </label>
+                                    <input
+                                        v-model="form.git_token"
+                                        :type="showGitToken ? 'text' : 'password'"
+                                        required
+                                        placeholder="ghp_xxxxxxxxxxxx or glpat-xxxxxxxxxxxx"
+                                        class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                    />
+                                    <p v-if="form.errors.git_token" class="text-[11px] text-rose-500 mt-1.5">{{ form.errors.git_token }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-700 dark:text-surface-200 mb-1.5 flex items-center justify-between">
+                                        <span>Token Username</span>
+                                        <span class="text-[10px] text-slate-400 font-normal">Optional</span>
+                                    </label>
+                                    <input
+                                        v-model="form.git_token_user"
+                                        type="text"
+                                        placeholder="e.g. x-access-token or username"
+                                        class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-surface-950/60 border border-slate-200 dark:border-surface-800 text-xs text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+                                    />
+                                    <p class="text-[10px] text-slate-400 dark:text-surface-500 mt-1">
+                                        Default is auto-detected (GitHub: <code class="font-mono">x-access-token</code>, GitLab: <code class="font-mono">oauth2</code>).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="p-3 rounded-lg bg-slate-50 dark:bg-surface-950/60 border border-slate-200/80 dark:border-surface-800 text-[10.5px] text-slate-500 dark:text-surface-400 space-y-1">
+                                <p class="font-semibold text-slate-700 dark:text-surface-300">Required Token Scopes / Permissions:</p>
+                                <p>Ensure your token has <strong class="text-slate-800 dark:text-surface-200">repo</strong> (GitHub) or <strong class="text-slate-800 dark:text-surface-200">read_repository</strong> (GitLab) permission to clone private repositories.</p>
                             </div>
                         </div>
                     </div>

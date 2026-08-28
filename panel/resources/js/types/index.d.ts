@@ -74,7 +74,16 @@ export interface Website {
     ssl_enabled: boolean;
     force_https: boolean;
     status: 'active' | 'suspended' | 'provisioning' | 'error';
+    deployment_source?: 'empty' | 'zip' | 'git';
+    project_type?: string;
+    git_repository?: string | null;
+    git_branch?: string | null;
+    git_auth_type?: 'none' | 'ssh_key' | 'token';
+    git_token_user?: string | null;
+    git_ssh_public_key?: string | null;
+    last_deployed_at?: string | null;
     domains?: Domain[];
+    deployments?: Deployment[];
     ssl_certificate?: SslCertificate | null;
     created_at: string;
     updated_at: string;

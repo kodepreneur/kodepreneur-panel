@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/dashboard/metrics', [DashboardController::class, 'metrics'])->name('dashboard.metrics');
 
     // Websites
+    Route::post('/websites/deploy-key/generate', [WebsiteController::class, 'generateDeployKey'])->name('websites.deploy-key.generate');
     Route::resource('websites', WebsiteController::class);
     Route::put('/websites/{website}/php', [WebsiteController::class, 'switchPhp'])->name('websites.php');
     Route::post('/websites/{website}/ssl', [WebsiteController::class, 'issueSsl'])->name('websites.ssl');

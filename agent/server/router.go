@@ -278,6 +278,11 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 		DeploymentSource string       `json:"deployment_source"` // "empty", "zip", "git"
 		GitRepository    string       `json:"git_repository"`
 		GitBranch        string       `json:"git_branch"`
+		GitAuthType      string       `json:"git_auth_type"` // "none", "ssh_key", "token"
+		GitToken         string       `json:"git_token"`
+		GitTokenUser     string       `json:"git_token_user"`
+		GitSshPrivateKey string       `json:"git_ssh_private_key"`
+		GitSshPublicKey  string       `json:"git_ssh_public_key"`
 		ProjectType      string       `json:"project_type"` // "laravel", "generic_php", "static", "auto"
 		ZipBase64        string       `json:"zip_base64"`
 		ZipPath          string       `json:"zip_path"`
@@ -333,7 +338,17 @@ func (r *Router) handleWebsites(w http.ResponseWriter, req *http.Request) {
 	switch payload.DeploymentSource {
 	case "git":
 		if payload.GitRepository != "" {
-			if err := r.gitRunner.CloneRepo(payload.GitRepository, payload.GitBranch, realBaseDir, payload.SystemUser); err != nil {
+			opts := git.CloneOptions{
+				RepoUrl:       payload.GitRepository,
+				Branch:        payload.GitBranch,
+				TargetDir:     realBaseDir,
+				SystemUser:    payload.SystemUser,
+				AuthType:      payload.GitAuthType,
+				SshPrivateKey: payload.GitSshPrivateKey,
+				GitToken:      payload.GitToken,
+				GitTokenUser:  payload.GitTokenUser,
+			}
+			if err := r.gitRunner.Clone(opts); err != nil {
 				respondError(w, http.StatusInternalServerError, "GIT_CLONE_FAILED", err.Error())
 				return
 			}

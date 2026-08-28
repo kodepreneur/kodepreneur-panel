@@ -25,6 +25,11 @@ class Website extends Model
         'project_type',
         'git_repository',
         'git_branch',
+        'git_auth_type',
+        'git_token',
+        'git_token_user',
+        'git_ssh_private_key',
+        'git_ssh_public_key',
         'last_deployed_at',
     ];
 
@@ -34,6 +39,8 @@ class Website extends Model
             'aliases' => 'array',
             'ssl_enabled' => 'boolean',
             'force_https' => 'boolean',
+            'git_token' => 'encrypted',
+            'git_ssh_private_key' => 'encrypted',
             'last_deployed_at' => 'datetime',
         ];
     }

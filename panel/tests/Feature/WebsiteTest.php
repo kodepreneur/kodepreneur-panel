@@ -101,6 +101,73 @@ class WebsiteTest extends TestCase
         ]);
     }
 
+    public function test_user_can_generate_deploy_key(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/deploy-key/generate');
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'public_key',
+            'private_key',
+        ]);
+        $this->assertTrue($response->json('success'));
+        $this->assertStringContainsString('ssh-', $response->json('public_key'));
+    }
+
+    public function test_user_can_create_website_with_private_git_repo_ssh_key(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'private-ssh.com',
+            'php_version' => '8.4',
+            'deployment_source' => 'git',
+            'project_type' => 'laravel',
+            'git_repository' => 'git@github.com:myorg/private-repo.git',
+            'git_branch' => 'production',
+            'git_auth_type' => 'ssh_key',
+            'git_ssh_public_key' => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... kodepreneur-deploy-key',
+            'git_ssh_private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+        ]);
+
+        $website = Website::where('domain', 'private-ssh.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertEquals('ssh_key', $website->git_auth_type);
+        $this->assertEquals('git@github.com:myorg/private-repo.git', $website->git_repository);
+        $this->assertEquals('production', $website->git_branch);
+        $this->assertNotNull($website->git_ssh_private_key);
+        $this->assertStringContainsString('ssh-ed25519', $website->git_ssh_public_key);
+    }
+
+    public function test_user_can_create_website_with_private_git_repo_token(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'private-token.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'git',
+            'project_type' => 'laravel',
+            'git_repository' => 'https://github.com/myorg/token-repo.git',
+            'git_branch' => 'main',
+            'git_auth_type' => 'token',
+            'git_token' => 'ghp_secret_access_token_123',
+            'git_token_user' => 'x-access-token',
+        ]);
+
+        $website = Website::where('domain', 'private-token.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertEquals('token', $website->git_auth_type);
+        $this->assertEquals('https://github.com/myorg/token-repo.git', $website->git_repository);
+        $this->assertEquals('ghp_secret_access_token_123', $website->git_token);
+        $this->assertEquals('x-access-token', $website->git_token_user);
+    }
+
     public function test_user_can_create_website_with_zip_file(): void
     {
         $user = User::where('email', 'admin@kodepreneur.com')->first();
