@@ -118,6 +118,59 @@ export interface SslCertificate {
     created_at: string;
 }
 
+export interface RequestLogEntry {
+    timestamp: string;
+    client_ip: string;
+    method: string;
+    path: string;
+    protocol: string;
+    status_code: number;
+    bytes_sent: number;
+    referer: string;
+    user_agent: string;
+    browser: string;
+}
+
+export interface TimeSeriesDataPoint {
+    timestamp: string;
+    label: string;
+    requests: number;
+    bytes_sent: number;
+    success_2xx: number;
+    redirect_3xx: number;
+    client_err_4xx: number;
+    server_err_5xx: number;
+}
+
+export interface TopMetricItem {
+    key: string;
+    count: number;
+    bytes_sent?: number;
+    percentage: number;
+}
+
+export interface WebsiteTrafficSummary {
+    domain: string;
+    period: 'today' | '24h' | '7d' | '30d' | string;
+    total_requests: number;
+    total_bytes_sent: number;
+    unique_visitors: number;
+    success_rate: number;
+    status_codes: Record<string, number>;
+    status_categories: {
+        '2xx': number;
+        '3xx': number;
+        '4xx': number;
+        '5xx': number;
+    };
+    time_series: TimeSeriesDataPoint[];
+    top_paths: TopMetricItem[];
+    top_ips: TopMetricItem[];
+    top_referrers: TopMetricItem[];
+    top_user_agents: TopMetricItem[];
+    recent_requests: RequestLogEntry[];
+}
+
 export interface DatabaseUser {
     id: string | number;
     engine: 'mysql' | 'postgresql';

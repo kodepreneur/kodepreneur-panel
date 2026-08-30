@@ -55,6 +55,11 @@ interface AgentClientInterface
     public function getWebsiteLogs(string $domain, string $type = 'access', int $lines = 100): array;
 
     /**
+     * Retrieve aggregated traffic metrics, time series, and request analytics for a website.
+     */
+    public function getWebsiteTraffic(string $domain, string $period = '24h'): array;
+
+    /**
      * Create a MySQL or PostgreSQL database.
      */
     public function createDatabase(array $payload): array;

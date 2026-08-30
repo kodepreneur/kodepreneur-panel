@@ -59,4 +59,40 @@ class AgentClientTest extends TestCase
             return $hasTimestamp && $hasNonce && $hasSignature && hash_equals($expectedSig, $sig);
         });
     }
+
+    public function test_mock_agent_returns_valid_website_traffic(): void
+    {
+        $mock = new MockAgentClient();
+        $traffic = $mock->getWebsiteTraffic('testsite.com', '24h');
+
+        $this->assertEquals('testsite.com', $traffic['domain']);
+        $this->assertEquals('24h', $traffic['period']);
+        $this->assertGreaterThan(0, $traffic['total_requests']);
+        $this->assertArrayHasKey('time_series', $traffic);
+        $this->assertArrayHasKey('top_paths', $traffic);
+        $this->assertArrayHasKey('recent_requests', $traffic);
+    }
+
+    public function test_http_agent_client_fetches_website_traffic(): void
+    {
+        $secret = 'test-secret-key-123';
+        $client = new HttpAgentClient('http://127.0.0.1:8765', $secret);
+
+        Http::fake([
+            'http://127.0.0.1:8765/api/v1/websites/demo.com/traffic?period=7d' => Http::response([
+                'success' => true,
+                'data' => [
+                    'domain' => 'demo.com',
+                    'period' => '7d',
+                    'total_requests' => 1500,
+                ],
+            ], 200),
+        ]);
+
+        $traffic = $client->getWebsiteTraffic('demo.com', '7d');
+
+        $this->assertEquals('demo.com', $traffic['domain']);
+        $this->assertEquals('7d', $traffic['period']);
+        $this->assertEquals(1500, $traffic['total_requests']);
+    }
 }

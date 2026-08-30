@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
     Route::put('/websites/{website}/php', [WebsiteController::class, 'switchPhp'])->name('websites.php');
     Route::post('/websites/{website}/ssl', [WebsiteController::class, 'issueSsl'])->name('websites.ssl');
     Route::get('/websites/{website}/logs/{type}', [WebsiteController::class, 'logs'])->name('websites.logs');
+    Route::get('/websites/{website}/traffic', [WebsiteController::class, 'traffic'])->name('websites.traffic');
     Route::post('/websites/{website}/deploy', [DeploymentController::class, 'trigger'])->name('websites.deploy');
 
     // Databases

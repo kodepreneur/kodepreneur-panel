@@ -300,6 +300,42 @@ class WebsiteTest extends TestCase
         ]);
     }
 
+    public function test_user_can_fetch_website_traffic(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $website = Website::create([
+            'domain' => 'traffic-site.com',
+            'php_version' => '8.3',
+            'document_root' => '/var/www/traffic-site.com/public',
+            'system_user' => 'kp_trafficsite',
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/websites/{$website->id}/traffic?period=24h");
+
+        $response->assertStatus(200);
+        $response->assertJsonStructure([
+            'success',
+            'data' => [
+                'domain',
+                'period',
+                'total_requests',
+                'total_bytes_sent',
+                'unique_visitors',
+                'success_rate',
+                'status_codes',
+                'status_categories',
+                'time_series',
+                'top_paths',
+                'top_ips',
+                'top_referrers',
+                'top_user_agents',
+                'recent_requests',
+            ],
+        ]);
+        $this->assertEquals('traffic-site.com', $response->json('data.domain'));
+    }
+
     public function test_user_can_delete_a_website(): void
     {
         $user = User::where('email', 'admin@kodepreneur.com')->first();

@@ -113,7 +113,40 @@ func TestWebsiteEndpoints(t *testing.T) {
 		t.Errorf("Expected log entries in response")
 	}
 
-	// 5. DELETE /api/v1/websites/testsite.org
+	// 5. GET /api/v1/websites/testsite.org/traffic?period=24h
+	req = httptest.NewRequest("GET", "/api/v1/websites/testsite.org/traffic?period=24h", nil)
+	signRequest(req, nil, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for traffic stats, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var trafficResp struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Domain        string `json:"domain"`
+			Period        string `json:"period"`
+			TotalRequests int    `json:"total_requests"`
+			TimeSeries    []any  `json:"time_series"`
+			TopPaths      []any  `json:"top_paths"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&trafficResp); err != nil {
+		t.Fatalf("Failed to decode traffic response: %v", err)
+	}
+	if trafficResp.Data.Domain != "testsite.org" {
+		t.Errorf("Expected domain testsite.org in traffic response, got %s", trafficResp.Data.Domain)
+	}
+	if trafficResp.Data.TotalRequests <= 0 {
+		t.Errorf("Expected positive total requests in traffic response")
+	}
+	if len(trafficResp.Data.TimeSeries) == 0 {
+		t.Errorf("Expected non-empty time series in traffic response")
+	}
+
+	// 6. DELETE /api/v1/websites/testsite.org
 	deletePayload := []byte(`{"php_version": "8.4", "system_user": "kp_testsite"}`)
 	req = httptest.NewRequest("DELETE", "/api/v1/websites/testsite.org", bytes.NewReader(deletePayload))
 	signRequest(req, deletePayload, cfg.Security.SecretKey)

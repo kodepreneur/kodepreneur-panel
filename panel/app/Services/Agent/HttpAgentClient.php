@@ -72,6 +72,12 @@ class HttpAgentClient implements AgentClientInterface
         return $res['data'] ?? [];
     }
 
+    public function getWebsiteTraffic(string $domain, string $period = '24h'): array
+    {
+        $res = $this->request('GET', "/api/v1/websites/{$domain}/traffic?period={$period}");
+        return $res['data'] ?? [];
+    }
+
     public function createDatabase(array $payload): array
     {
         $res = $this->request('POST', '/api/v1/databases', $payload);

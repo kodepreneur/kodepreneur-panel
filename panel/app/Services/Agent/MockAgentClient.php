@@ -151,6 +151,168 @@ class MockAgentClient implements AgentClientInterface
         ];
     }
 
+    public function getWebsiteTraffic(string $domain, string $period = '24h'): array
+    {
+        $period = in_array(strtolower($period), ['today', '24h', '7d', '30d']) ? strtolower($period) : '24h';
+        $now = time();
+        $timeSeries = [];
+        $bucketCount = 24;
+        $bucketInterval = 3600;
+        $labelFormat = 'H:00';
+        $startTime = $now - (24 * 3600);
+
+        if ($period === 'today') {
+            $startOfDay = strtotime('today midnight');
+            $currentHour = (int) date('G', $now);
+            $bucketCount = max(4, $currentHour + 1);
+            $startTime = $startOfDay;
+            $bucketInterval = 3600;
+            $labelFormat = 'H:00';
+        } elseif ($period === '7d') {
+            $bucketCount = 7;
+            $bucketInterval = 86400;
+            $labelFormat = 'd M';
+            $startTime = $now - (7 * 86400);
+        } elseif ($period === '30d') {
+            $bucketCount = 30;
+            $bucketInterval = 86400;
+            $labelFormat = 'd M';
+            $startTime = $now - (30 * 86400);
+        }
+
+        $totalRequests = 0;
+        $totalBytesSent = 0;
+        $statusCategories = ['2xx' => 0, '3xx' => 0, '4xx' => 0, '5xx' => 0];
+        $statusCodes = ['200' => 0, '301' => 0, '304' => 0, '404' => 0, '403' => 0, '500' => 0];
+
+        $seed = crc32($domain);
+        mt_srand($seed + (int) ($now / 300));
+
+        for ($i = 0; $i < $bucketCount; $i++) {
+            $pointTime = $startTime + (($i + 1) * $bucketInterval);
+            $hour = (int) date('G', $pointTime);
+            $factor = ($hour >= 9 && $hour <= 21) ? 1.6 : 0.6;
+            $reqs = (int) ((40 + mt_rand(5, 35)) * $factor);
+            if ($reqs < 5) $reqs = 5;
+
+            $s2xx = (int) ($reqs * 0.90);
+            $s3xx = (int) ($reqs * 0.05);
+            $s4xx = (int) ($reqs * 0.04);
+            $s5xx = max(0, $reqs - $s2xx - $s3xx - $s4xx);
+            $bytes = $reqs * mt_rand(2800, 6500);
+
+            $timeSeries[] = [
+                'timestamp' => date('c', $pointTime),
+                'label' => date($labelFormat, $pointTime),
+                'requests' => $reqs,
+                'bytes_sent' => $bytes,
+                'success_2xx' => $s2xx,
+                'redirect_3xx' => $s3xx,
+                'client_err_4xx' => $s4xx,
+                'server_err_5xx' => $s5xx,
+            ];
+
+            $totalRequests += $reqs;
+            $totalBytesSent += $bytes;
+            $statusCategories['2xx'] += $s2xx;
+            $statusCategories['3xx'] += $s3xx;
+            $statusCategories['4xx'] += $s4xx;
+            $statusCategories['5xx'] += $s5xx;
+
+            $statusCodes['200'] += $s2xx;
+            $statusCodes['301'] += (int) ($s3xx * 0.7);
+            $statusCodes['304'] += $s3xx - (int) ($s3xx * 0.7);
+            $statusCodes['404'] += (int) ($s4xx * 0.8);
+            $statusCodes['403'] += $s4xx - (int) ($s4xx * 0.8);
+            $statusCodes['500'] += $s5xx;
+        }
+
+        $uniqueVisitors = max(10, (int) ($totalRequests * 0.42));
+        $successRate = $totalRequests > 0 ? round((($statusCategories['2xx'] + $statusCategories['3xx']) / $totalRequests) * 100, 2) : 100.0;
+
+        $topPaths = [
+            ['key' => '/', 'count' => (int) ($totalRequests * 0.36), 'bytes_sent' => (int) ($totalBytesSent * 0.38), 'percentage' => 36.0],
+            ['key' => '/api/v1/status', 'count' => (int) ($totalRequests * 0.22), 'bytes_sent' => (int) ($totalBytesSent * 0.12), 'percentage' => 22.0],
+            ['key' => '/login', 'count' => (int) ($totalRequests * 0.14), 'bytes_sent' => (int) ($totalBytesSent * 0.15), 'percentage' => 14.0],
+            ['key' => '/dashboard', 'count' => (int) ($totalRequests * 0.11), 'bytes_sent' => (int) ($totalBytesSent * 0.18), 'percentage' => 11.0],
+            ['key' => '/assets/app.js', 'count' => (int) ($totalRequests * 0.08), 'bytes_sent' => (int) ($totalBytesSent * 0.09), 'percentage' => 8.0],
+            ['key' => '/assets/app.css', 'count' => (int) ($totalRequests * 0.05), 'bytes_sent' => (int) ($totalBytesSent * 0.04), 'percentage' => 5.0],
+            ['key' => '/api/v1/products', 'count' => (int) ($totalRequests * 0.04), 'bytes_sent' => (int) ($totalBytesSent * 0.04), 'percentage' => 4.0],
+        ];
+
+        $topIPs = [
+            ['key' => '127.0.0.1', 'count' => (int) ($totalRequests * 0.28), 'bytes_sent' => (int) ($totalBytesSent * 0.25), 'percentage' => 28.0],
+            ['key' => '192.168.1.105', 'count' => (int) ($totalRequests * 0.18), 'bytes_sent' => (int) ($totalBytesSent * 0.20), 'percentage' => 18.0],
+            ['key' => '104.28.19.44', 'count' => (int) ($totalRequests * 0.14), 'bytes_sent' => (int) ($totalBytesSent * 0.15), 'percentage' => 14.0],
+            ['key' => '172.56.21.89', 'count' => (int) ($totalRequests * 0.10), 'bytes_sent' => (int) ($totalBytesSent * 0.11), 'percentage' => 10.0],
+            ['key' => '66.249.66.1', 'count' => (int) ($totalRequests * 0.08), 'bytes_sent' => (int) ($totalBytesSent * 0.07), 'percentage' => 8.0],
+            ['key' => '185.191.171.12', 'count' => (int) ($totalRequests * 0.06), 'bytes_sent' => (int) ($totalBytesSent * 0.05), 'percentage' => 6.0],
+        ];
+
+        $topReferrers = [
+            ['key' => 'Direct / None', 'count' => (int) ($totalRequests * 0.52), 'bytes_sent' => 0, 'percentage' => 52.0],
+            ['key' => 'google.com', 'count' => (int) ($totalRequests * 0.24), 'bytes_sent' => 0, 'percentage' => 24.0],
+            ['key' => 'github.com', 'count' => (int) ($totalRequests * 0.12), 'bytes_sent' => 0, 'percentage' => 12.0],
+            ['key' => 'twitter.com', 'count' => (int) ($totalRequests * 0.07), 'bytes_sent' => 0, 'percentage' => 7.0],
+            ['key' => 'linkedin.com', 'count' => (int) ($totalRequests * 0.05), 'bytes_sent' => 0, 'percentage' => 5.0],
+        ];
+
+        $topUserAgents = [
+            ['key' => 'Google Chrome', 'count' => (int) ($totalRequests * 0.54), 'bytes_sent' => 0, 'percentage' => 54.0],
+            ['key' => 'Apple Safari', 'count' => (int) ($totalRequests * 0.22), 'bytes_sent' => 0, 'percentage' => 22.0],
+            ['key' => 'Mozilla Firefox', 'count' => (int) ($totalRequests * 0.12), 'bytes_sent' => 0, 'percentage' => 12.0],
+            ['key' => 'Microsoft Edge', 'count' => (int) ($totalRequests * 0.06), 'bytes_sent' => 0, 'percentage' => 6.0],
+            ['key' => 'Bot / Crawler', 'count' => (int) ($totalRequests * 0.04), 'bytes_sent' => 0, 'percentage' => 4.0],
+            ['key' => 'API Client (cURL/Postman)', 'count' => (int) ($totalRequests * 0.02), 'bytes_sent' => 0, 'percentage' => 2.0],
+        ];
+
+        $recentRequests = [];
+        $samplePaths = ['/', '/api/v1/status', '/login', '/dashboard', '/assets/app.js', '/assets/app.css', '/api/v1/products', '/settings', '/not-found'];
+        $sampleMethods = ['GET', 'GET', 'POST', 'GET', 'GET', 'GET', 'GET', 'PUT', 'GET'];
+        $sampleStatuses = [200, 200, 302, 200, 200, 304, 200, 200, 404];
+        $sampleIPs = ['127.0.0.1', '192.168.1.105', '104.28.19.44', '172.56.21.89', '66.249.66.1'];
+        $sampleUAs = [
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.6 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:129.0) Gecko/20100101 Firefox/129.0',
+            'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        ];
+        $sampleBrowsers = ['Google Chrome', 'Apple Safari', 'Mozilla Firefox', 'Bot / Crawler'];
+
+        for ($i = 0; $i < 20; $i++) {
+            $pIdx = $i % count($samplePaths);
+            $recentRequests[] = [
+                'timestamp' => date('c', $now - ($i * 45)),
+                'client_ip' => $sampleIPs[$i % count($sampleIPs)],
+                'method' => $sampleMethods[$pIdx],
+                'path' => $samplePaths[$pIdx],
+                'protocol' => 'HTTP/1.1',
+                'status_code' => $sampleStatuses[$pIdx],
+                'bytes_sent' => 1200 + (($i * 317) % 15000),
+                'referer' => "https://{$domain}",
+                'user_agent' => $sampleUAs[$i % count($sampleUAs)],
+                'browser' => $sampleBrowsers[$i % count($sampleBrowsers)],
+            ];
+        }
+
+        return [
+            'domain' => $domain,
+            'period' => $period,
+            'total_requests' => $totalRequests,
+            'total_bytes_sent' => $totalBytesSent,
+            'unique_visitors' => $uniqueVisitors,
+            'success_rate' => $successRate,
+            'status_codes' => $statusCodes,
+            'status_categories' => $statusCategories,
+            'time_series' => $timeSeries,
+            'top_paths' => $topPaths,
+            'top_ips' => $topIPs,
+            'top_referrers' => $topReferrers,
+            'top_user_agents' => $topUserAgents,
+            'recent_requests' => $recentRequests,
+        ];
+    }
+
     public function createDatabase(array $payload): array
     {
         return [

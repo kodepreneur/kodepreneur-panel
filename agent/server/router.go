@@ -63,6 +63,7 @@ type Router struct {
 	mux               *http.ServeMux
 	nginxManager      *nginx.Manager
 	logManager        *nginx.LogManager
+	trafficManager    *nginx.TrafficManager
 	phpManager        *phpfpm.Manager
 	sslManager        *ssl.Manager
 	dbManager         *database.Manager
@@ -80,6 +81,7 @@ func NewRouter(cfg *config.Config) *Router {
 		mux:               http.NewServeMux(),
 		nginxManager:      nginx.NewManager(cfg.Environment.IsDev),
 		logManager:        nginx.NewLogManager(cfg.Environment.IsDev),
+		trafficManager:    nginx.NewTrafficManager(cfg.Environment.IsDev),
 		phpManager:        phpfpm.NewManager(cfg.Environment.IsDev),
 		sslManager:        ssl.NewManager(cfg.Environment.IsDev),
 		dbManager:         database.NewManager(cfg.Environment.IsDev),
@@ -674,6 +676,26 @@ func (r *Router) handleWebsiteSubroutes(w http.ResponseWriter, req *http.Request
 				"type":   logType,
 				"lines":  logEntries,
 			},
+		})
+		return
+	}
+
+	// GET /api/v1/websites/{domain}/traffic
+	if len(parts) == 2 && parts[1] == "traffic" && req.Method == http.MethodGet {
+		period := req.URL.Query().Get("period")
+		if period == "" {
+			period = "24h"
+		}
+
+		trafficSummary, err := r.trafficManager.AnalyzeTraffic(domain, period)
+		if err != nil {
+			respondError(w, http.StatusInternalServerError, "TRAFFIC_ANALYSIS_FAILED", err.Error())
+			return
+		}
+
+		respondJSON(w, http.StatusOK, map[string]any{
+			"success": true,
+			"data":    trafficSummary,
 		})
 		return
 	}

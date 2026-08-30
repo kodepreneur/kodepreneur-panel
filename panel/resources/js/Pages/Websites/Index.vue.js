@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Globe, Plus, Trash2, ShieldCheck, ShieldAlert, ExternalLink, Search, } from 'lucide-vue-next';
+import { Globe, Plus, Trash2, ShieldCheck, ShieldAlert, ExternalLink, Search, Activity, } from 'lucide-vue-next';
 const props = defineProps();
 const searchQuery = ref('');
 const filterPhp = ref('all');
@@ -342,16 +342,25 @@ else {
             title: "Manage Website",
         }, ...__VLS_functionalComponentArgsRest(__VLS_45));
         __VLS_47.slots.default;
-        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
-        const __VLS_48 = {}.ExternalLink;
-        /** @type {[typeof __VLS_components.ExternalLink, ]} */ ;
+        const __VLS_48 = {}.Activity;
+        /** @type {[typeof __VLS_components.Activity, ]} */ ;
         // @ts-ignore
         const __VLS_49 = __VLS_asFunctionalComponent(__VLS_48, new __VLS_48({
-            ...{ class: "w-3 h-3 text-slate-400 dark:text-surface-400" },
+            ...{ class: "w-3 h-3 text-indigo-500 dark:text-brand-400" },
         }));
         const __VLS_50 = __VLS_49({
-            ...{ class: "w-3 h-3 text-slate-400 dark:text-surface-400" },
+            ...{ class: "w-3 h-3 text-indigo-500 dark:text-brand-400" },
         }, ...__VLS_functionalComponentArgsRest(__VLS_49));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        const __VLS_52 = {}.ExternalLink;
+        /** @type {[typeof __VLS_components.ExternalLink, ]} */ ;
+        // @ts-ignore
+        const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+            ...{ class: "w-3 h-3 text-slate-400 dark:text-surface-400" },
+        }));
+        const __VLS_54 = __VLS_53({
+            ...{ class: "w-3 h-3 text-slate-400 dark:text-surface-400" },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_53));
         var __VLS_47;
         __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
             ...{ onClick: (...[$event]) => {
@@ -362,15 +371,15 @@ else {
             ...{ class: "p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition" },
             title: "Delete Website",
         });
-        const __VLS_52 = {}.Trash2;
+        const __VLS_56 = {}.Trash2;
         /** @type {[typeof __VLS_components.Trash2, ]} */ ;
         // @ts-ignore
-        const __VLS_53 = __VLS_asFunctionalComponent(__VLS_52, new __VLS_52({
+        const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
             ...{ class: "w-3.5 h-3.5" },
         }));
-        const __VLS_54 = __VLS_53({
+        const __VLS_58 = __VLS_57({
             ...{ class: "w-3.5 h-3.5" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_53));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_57));
     }
 }
 if (__VLS_ctx.showDeleteModal) {
@@ -386,15 +395,15 @@ if (__VLS_ctx.showDeleteModal) {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "p-2.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 text-rose-600 dark:text-rose-400" },
     });
-    const __VLS_56 = {}.Trash2;
+    const __VLS_60 = {}.Trash2;
     /** @type {[typeof __VLS_components.Trash2, ]} */ ;
     // @ts-ignore
-    const __VLS_57 = __VLS_asFunctionalComponent(__VLS_56, new __VLS_56({
+    const __VLS_61 = __VLS_asFunctionalComponent(__VLS_60, new __VLS_60({
         ...{ class: "w-5 h-5" },
     }));
-    const __VLS_58 = __VLS_57({
+    const __VLS_62 = __VLS_61({
         ...{ class: "w-5 h-5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_57));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_61));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-sm font-semibold text-slate-900 dark:text-white" },
@@ -737,6 +746,10 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['transition']} */ ;
 /** @type {__VLS_StyleScopedClasses['w-3']} */ ;
 /** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-indigo-500']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3']} */ ;
 /** @type {__VLS_StyleScopedClasses['text-slate-400']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
 /** @type {__VLS_StyleScopedClasses['p-1.5']} */ ;
@@ -842,6 +855,7 @@ const __VLS_self = (await import('vue')).defineComponent({
             ShieldAlert: ShieldAlert,
             ExternalLink: ExternalLink,
             Search: Search,
+            Activity: Activity,
             searchQuery: searchQuery,
             filterPhp: filterPhp,
             filterSsl: filterSsl,

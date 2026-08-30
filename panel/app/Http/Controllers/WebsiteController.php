@@ -608,6 +608,27 @@ class WebsiteController extends Controller
         }
     }
 
+    public function traffic(Request $request, Website $website): JsonResponse
+    {
+        $period = $request->query('period', '24h');
+        if (!in_array($period, ['today', '24h', '7d', '30d'])) {
+            $period = '24h';
+        }
+
+        try {
+            $trafficData = $this->agentClient->getWebsiteTraffic($website->domain, $period);
+            return response()->json([
+                'success' => true,
+                'data' => $trafficData,
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function destroy(Request $request, Website $website): RedirectResponse
     {
         $domain = $website->domain;

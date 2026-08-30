@@ -71,6 +71,7 @@ Content-Type: application/json
 * `DELETE /websites/{id}` — Remove website and optionally delete files.
 * `POST   /websites/{id}/ssl` — Request or renew Let's Encrypt SSL certificate.
 * `GET    /websites/{id}/logs/{type}` — Stream or fetch `access.log` or `error.log`.
+* `GET    /websites/{id}/traffic` — Retrieve aggregated traffic stats, time series, status codes, and request logs (`?period=24h|today|7d|30d`).
 
 ### 3.4 Database Management
 * `GET    /databases` — List all MySQL / PostgreSQL databases.

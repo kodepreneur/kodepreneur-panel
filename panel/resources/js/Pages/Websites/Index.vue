@@ -14,6 +14,7 @@ import {
     Layers,
     Lock,
     Sparkles,
+    Activity,
 } from 'lucide-vue-next';
 import type { Website } from '@/types';
 
@@ -219,6 +220,7 @@ function executeDelete() {
                                             class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-200 text-xs font-medium flex items-center gap-1 transition"
                                             title="Manage Website"
                                         >
+                                            <Activity class="w-3 h-3 text-indigo-500 dark:text-brand-400" />
                                             <span>Manage</span>
                                             <ExternalLink class="w-3 h-3 text-slate-400 dark:text-surface-400" />
                                         </Link>
