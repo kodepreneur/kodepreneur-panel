@@ -55,7 +55,11 @@ class FileManagerController extends Controller
         }
 
         if (!$isAllowed) {
-            return $website && $website->document_root ? dirname($website->document_root) : '/var/www';
+            if ($website && $website->document_root) {
+                $docRoot = rtrim($website->document_root, '/');
+                return str_ends_with($docRoot, '/public') ? dirname($docRoot) : $docRoot;
+            }
+            return '/var/www';
         }
 
         return $clean;
@@ -72,7 +76,8 @@ class FileManagerController extends Controller
 
         $basePath = '/var/www';
         if ($selectedWebsite && $selectedWebsite->document_root) {
-            $basePath = dirname($selectedWebsite->document_root);
+            $docRoot = rtrim($selectedWebsite->document_root, '/');
+            $basePath = str_ends_with($docRoot, '/public') ? dirname($docRoot) : $docRoot;
         }
         $basePath = $this->sanitizeAndValidateBasePath($basePath, $selectedWebsite);
 
