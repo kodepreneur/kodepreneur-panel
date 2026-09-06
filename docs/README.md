@@ -21,6 +21,7 @@ Kodepreneur Panel is a lightweight, fast, and secure VPS control panel designed 
 | [Database Architecture](file:///docs/database.md) | SQLite panel schema, entity-relationship models, normalization, indexing, and migration rules. |
 | [Deployment & Git Engine](file:///docs/deployment.md) | Zero-downtime & atomic Git deployments, unprivileged execution, rollbacks, and logs. |
 | [Troubleshooting & Runbook](file:///docs/troubleshooting.md) | Diagnosing agent failures, Nginx validation issues, SSL errors, log locations, recovery flows. |
+| [Password Reset Guide](file:///docs/password-reset.md) | How to reset or recover administrator credentials via CLI or Tinker. |
 | [Roadmap & Phases](file:///docs/roadmap.md) | Development roadmap from Phase 0 to Phase 7, MVP definition, future scope. |
 | [Changelog](file:///docs/changelog.md) | Historical record of architectural shifts, releases, and updates. |
 | [Architecture Decision Records (ADRs)](file:///docs/decisions/README.md) | Formal records of major architectural choices and rationales. |
