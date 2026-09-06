@@ -26,7 +26,6 @@ import {
     Moon,
     Bell,
     Search,
-    Layers,
 } from 'lucide-vue-next';
 import { useTheme } from '@/composables/useTheme';
 import type { PageProps } from '@/types';
@@ -73,16 +72,14 @@ function handleLogout() {
         <!-- Sidebar Navigation (Desktop) -->
         <aside class="hidden md:flex flex-col w-64 border-r border-slate-200/80 dark:border-surface-800/80 bg-white dark:bg-[#0a0e1a] shrink-0 transition-colors duration-150">
             <!-- Brand Logo Header -->
-            <div class="h-16 flex items-center px-6 gap-3 border-b border-slate-200/80 dark:border-surface-800/80">
-                <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-indigo-400 flex items-center justify-center shadow-md shadow-brand-500/25 ring-1 ring-white/20">
-                    <Layers class="w-4 h-4 text-white" />
-                </div>
-                <div>
-                    <h1 class="text-sm font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
-                        Kodepreneur <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-brand-50 text-brand-600 border border-brand-200 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/20">v1.0</span>
-                    </h1>
-                    <p class="text-[11px] text-slate-500 dark:text-surface-400 font-medium">Server Management</p>
-                </div>
+            <div class="h-16 flex items-center px-6 border-b border-slate-200/80 dark:border-surface-800/80">
+                <Link href="/dashboard" class="flex items-center">
+                    <img
+                        src="/logo.png"
+                        alt="Kodepreneur Panel"
+                        class="h-8 w-auto object-contain dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] transition-all"
+                    />
+                </Link>
             </div>
 
             <!-- Navigation Links List -->

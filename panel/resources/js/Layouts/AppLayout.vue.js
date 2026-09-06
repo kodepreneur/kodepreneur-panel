@@ -1,7 +1,7 @@
 /// <reference types="../../../node_modules/.vue-global-types/vue_3.5_0_0_0.d.ts" />
 import { ref, computed } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
-import { LayoutDashboard, Globe, Database, Rocket, Cpu, Activity, Settings, LogOut, Shield, ChevronDown, Menu, X, CheckCircle2, AlertCircle, Clock, Folder, Sliders, ArrowUpCircle, Sun, Moon, Layers, } from 'lucide-vue-next';
+import { LayoutDashboard, Globe, Database, Rocket, Cpu, Activity, Settings, LogOut, Shield, ChevronDown, Menu, X, CheckCircle2, AlertCircle, Clock, Folder, Sliders, ArrowUpCircle, Sun, Moon, } from 'lucide-vue-next';
 import { useTheme } from '@/composables/useTheme';
 const __VLS_props = defineProps();
 const page = usePage();
@@ -41,30 +41,26 @@ __VLS_asFunctionalElement(__VLS_intrinsicElements.aside, __VLS_intrinsicElements
     ...{ class: "hidden md:flex flex-col w-64 border-r border-slate-200/80 dark:border-surface-800/80 bg-white dark:bg-[#0a0e1a] shrink-0 transition-colors duration-150" },
 });
 __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "h-16 flex items-center px-6 gap-3 border-b border-slate-200/80 dark:border-surface-800/80" },
+    ...{ class: "h-16 flex items-center px-6 border-b border-slate-200/80 dark:border-surface-800/80" },
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
-    ...{ class: "w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-indigo-400 flex items-center justify-center shadow-md shadow-brand-500/25 ring-1 ring-white/20" },
-});
-const __VLS_0 = {}.Layers;
-/** @type {[typeof __VLS_components.Layers, ]} */ ;
+const __VLS_0 = {}.Link;
+/** @type {[typeof __VLS_components.Link, typeof __VLS_components.Link, ]} */ ;
 // @ts-ignore
 const __VLS_1 = __VLS_asFunctionalComponent(__VLS_0, new __VLS_0({
-    ...{ class: "w-4 h-4 text-white" },
+    href: "/dashboard",
+    ...{ class: "flex items-center" },
 }));
 const __VLS_2 = __VLS_1({
-    ...{ class: "w-4 h-4 text-white" },
+    href: "/dashboard",
+    ...{ class: "flex items-center" },
 }, ...__VLS_functionalComponentArgsRest(__VLS_1));
-__VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.h1, __VLS_intrinsicElements.h1)({
-    ...{ class: "text-sm font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5" },
+__VLS_3.slots.default;
+__VLS_asFunctionalElement(__VLS_intrinsicElements.img)({
+    src: "/logo.png",
+    alt: "Kodepreneur Panel",
+    ...{ class: "h-8 w-auto object-contain dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] transition-all" },
 });
-__VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
-    ...{ class: "px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-brand-50 text-brand-600 border border-brand-200 dark:bg-brand-500/10 dark:text-brand-400 dark:border-brand-500/20" },
-});
-__VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
-    ...{ class: "text-[11px] text-slate-500 dark:text-surface-400 font-medium" },
-});
+var __VLS_3;
 __VLS_asFunctionalElement(__VLS_intrinsicElements.nav, __VLS_intrinsicElements.nav)({
     ...{ class: "flex-1 px-3.5 py-4 space-y-1 overflow-y-auto" },
 });
@@ -478,52 +474,16 @@ var __VLS_80 = {};
 /** @type {__VLS_StyleScopedClasses['flex']} */ ;
 /** @type {__VLS_StyleScopedClasses['items-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['px-6']} */ ;
-/** @type {__VLS_StyleScopedClasses['gap-3']} */ ;
 /** @type {__VLS_StyleScopedClasses['border-b']} */ ;
 /** @type {__VLS_StyleScopedClasses['border-slate-200/80']} */ ;
 /** @type {__VLS_StyleScopedClasses['dark:border-surface-800/80']} */ ;
-/** @type {__VLS_StyleScopedClasses['w-8']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
 /** @type {__VLS_StyleScopedClasses['h-8']} */ ;
-/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
-/** @type {__VLS_StyleScopedClasses['bg-gradient-to-tr']} */ ;
-/** @type {__VLS_StyleScopedClasses['from-brand-600']} */ ;
-/** @type {__VLS_StyleScopedClasses['via-indigo-500']} */ ;
-/** @type {__VLS_StyleScopedClasses['to-indigo-400']} */ ;
-/** @type {__VLS_StyleScopedClasses['flex']} */ ;
-/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
-/** @type {__VLS_StyleScopedClasses['justify-center']} */ ;
-/** @type {__VLS_StyleScopedClasses['shadow-md']} */ ;
-/** @type {__VLS_StyleScopedClasses['shadow-brand-500/25']} */ ;
-/** @type {__VLS_StyleScopedClasses['ring-1']} */ ;
-/** @type {__VLS_StyleScopedClasses['ring-white/20']} */ ;
-/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
-/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-white']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-sm']} */ ;
-/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
-/** @type {__VLS_StyleScopedClasses['tracking-tight']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-slate-900']} */ ;
-/** @type {__VLS_StyleScopedClasses['dark:text-white']} */ ;
-/** @type {__VLS_StyleScopedClasses['flex']} */ ;
-/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
-/** @type {__VLS_StyleScopedClasses['gap-1.5']} */ ;
-/** @type {__VLS_StyleScopedClasses['px-1.5']} */ ;
-/** @type {__VLS_StyleScopedClasses['py-0.5']} */ ;
-/** @type {__VLS_StyleScopedClasses['rounded']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-[10px]']} */ ;
-/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
-/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
-/** @type {__VLS_StyleScopedClasses['bg-brand-50']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-brand-600']} */ ;
-/** @type {__VLS_StyleScopedClasses['border']} */ ;
-/** @type {__VLS_StyleScopedClasses['border-brand-200']} */ ;
-/** @type {__VLS_StyleScopedClasses['dark:bg-brand-500/10']} */ ;
-/** @type {__VLS_StyleScopedClasses['dark:text-brand-400']} */ ;
-/** @type {__VLS_StyleScopedClasses['dark:border-brand-500/20']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
-/** @type {__VLS_StyleScopedClasses['text-slate-500']} */ ;
-/** @type {__VLS_StyleScopedClasses['dark:text-surface-400']} */ ;
-/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-auto']} */ ;
+/** @type {__VLS_StyleScopedClasses['object-contain']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition-all']} */ ;
 /** @type {__VLS_StyleScopedClasses['flex-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['px-3.5']} */ ;
 /** @type {__VLS_StyleScopedClasses['py-4']} */ ;
@@ -847,7 +807,6 @@ const __VLS_self = (await import('vue')).defineComponent({
             ArrowUpCircle: ArrowUpCircle,
             Sun: Sun,
             Moon: Moon,
-            Layers: Layers,
             user: user,
             flash: flash,
             theme: theme,
