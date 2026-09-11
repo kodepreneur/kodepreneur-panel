@@ -231,25 +231,45 @@ class WebsiteController extends Controller
                     'permissions' => 'all',
                 ]);
 
-                // Save to local database records
-                $dbRecord = Database::create([
-                    'engine' => $dbEngine,
-                    'name' => $dbName,
-                    'character_set' => $charset,
-                    'collation' => $collation,
-                ]);
+                // Ensure user password is synchronized if user already existed
+                try {
+                    $this->agentClient->resetDatabaseUserPassword([
+                        'engine' => (string) $dbEngine,
+                        'username' => (string) $dbUsername,
+                        'host' => 'localhost',
+                        'password' => (string) $dbPassword,
+                    ]);
+                } catch (Exception $passEx) {
+                    // Non-fatal if reset password fails or already identical
+                }
 
-                $dbUserRecord = DatabaseUser::create([
-                    'engine' => $dbEngine,
-                    'username' => $dbUsername,
-                    'host' => 'localhost',
-                ]);
+                // Save to local database records safely (idempotent: prevent unique constraint violation on retry)
+                $dbRecord = Database::updateOrCreate(
+                    ['name' => $dbName],
+                    [
+                        'engine' => $dbEngine,
+                        'character_set' => $charset,
+                        'collation' => $collation,
+                    ]
+                );
 
-                DatabaseAccess::create([
-                    'database_id' => $dbRecord->id,
-                    'database_user_id' => $dbUserRecord->id,
-                    'permissions' => 'all',
-                ]);
+                $dbUserRecord = DatabaseUser::firstOrCreate(
+                    [
+                        'engine' => $dbEngine,
+                        'username' => $dbUsername,
+                        'host' => 'localhost',
+                    ]
+                );
+
+                DatabaseAccess::updateOrCreate(
+                    [
+                        'database_id' => $dbRecord->id,
+                        'database_user_id' => $dbUserRecord->id,
+                    ],
+                    [
+                        'permissions' => 'all',
+                    ]
+                );
             }
 
             // 2. Prepare Laravel Automated Post-Setup configuration
@@ -338,12 +358,14 @@ class WebsiteController extends Controller
             ]);
 
             // 5. Create Primary Domain record
-            Domain::create([
-                'website_id' => $website->id,
-                'domain' => $domain,
-                'is_primary' => true,
-                'ssl_status' => 'pending',
-            ]);
+            Domain::updateOrCreate(
+                ['domain' => $domain],
+                [
+                    'website_id' => $website->id,
+                    'is_primary' => true,
+                    'ssl_status' => 'pending',
+                ]
+            );
 
             // 6. Record Setup / Deployment Output Logs
             $setupResult = $agentRes['setup_result'] ?? null;
@@ -390,16 +412,20 @@ class WebsiteController extends Controller
                         'force_https' => true,
                     ]);
 
-                    SslCertificate::create([
-                        'website_id' => $website->id,
-                        'domain' => $domain,
-                        'issuer' => $sslRes['issuer'] ?? "Let's Encrypt",
-                        'cert_path' => $sslRes['cert_path'] ?? null,
-                        'key_path' => $sslRes['key_path'] ?? null,
-                        'valid_from' => $sslRes['valid_from'] ?? now(),
-                        'valid_until' => $sslRes['valid_until'] ?? now()->addDays(90),
-                        'status' => 'valid',
-                    ]);
+                    SslCertificate::updateOrCreate(
+                        [
+                            'website_id' => $website->id,
+                            'domain' => $domain,
+                        ],
+                        [
+                            'issuer' => $sslRes['issuer'] ?? "Let's Encrypt",
+                            'cert_path' => $sslRes['cert_path'] ?? null,
+                            'key_path' => $sslRes['key_path'] ?? null,
+                            'valid_from' => $sslRes['valid_from'] ?? now(),
+                            'valid_until' => $sslRes['valid_until'] ?? now()->addDays(90),
+                            'status' => 'valid',
+                        ]
+                    );
                 } catch (Exception $sslEx) {
                     // Non-fatal: website is still created, SSL can be retried later
                 }

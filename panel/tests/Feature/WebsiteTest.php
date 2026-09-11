@@ -2,7 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Database;
+use App\Models\DatabaseAccess;
+use App\Models\DatabaseUser;
 use App\Models\Deployment;
+use App\Models\Domain;
 use App\Models\User;
 use App\Models\Website;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -355,6 +359,95 @@ class WebsiteTest extends TestCase
         ]);
         $this->assertDatabaseHas('activity_logs', [
             'action' => 'website.delete',
+        ]);
+    }
+
+    public function test_user_can_create_website_with_automated_database(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'site-with-db.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'empty',
+            'project_type' => 'laravel',
+            'create_database' => true,
+            'db_engine' => 'mysql',
+            'db_name' => 'db_sitewithdb',
+            'db_username' => 'u_sitewithdb',
+            'db_password' => 'SecretPassword123!',
+        ]);
+
+        $website = Website::where('domain', 'site-with-db.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertDatabaseHas('databases', [
+            'name' => 'db_sitewithdb',
+            'engine' => 'mysql',
+        ]);
+        $this->assertDatabaseHas('database_users', [
+            'username' => 'u_sitewithdb',
+            'engine' => 'mysql',
+        ]);
+
+        $db = Database::where('name', 'db_sitewithdb')->first();
+        $dbUser = DatabaseUser::where('username', 'u_sitewithdb')->first();
+
+        $this->assertDatabaseHas('database_access', [
+            'database_id' => $db->id,
+            'database_user_id' => $dbUser->id,
+            'permissions' => 'all',
+        ]);
+    }
+
+    public function test_user_can_create_website_when_database_already_exists_without_constraint_error(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        // Simulate database, user, and access already existing from a previous failed attempt
+        $existingDb = Database::create([
+            'engine' => 'mysql',
+            'name' => 'db_barbersip',
+            'character_set' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+
+        $existingUser = DatabaseUser::create([
+            'engine' => 'mysql',
+            'username' => 'u_barbersip',
+            'host' => 'localhost',
+        ]);
+
+        DatabaseAccess::create([
+            'database_id' => $existingDb->id,
+            'database_user_id' => $existingUser->id,
+            'permissions' => 'all',
+        ]);
+
+        // Attempting to create the website again should NOT fail with UNIQUE constraint violation
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'barbersip.com',
+            'php_version' => '8.3',
+            'deployment_source' => 'empty',
+            'project_type' => 'laravel',
+            'create_database' => true,
+            'db_engine' => 'mysql',
+            'db_name' => 'db_barbersip',
+            'db_username' => 'u_barbersip',
+            'db_password' => 'NewSecretPassword123!',
+        ]);
+
+        $website = Website::where('domain', 'barbersip.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertDatabaseHas('websites', [
+            'domain' => 'barbersip.com',
+        ]);
+        $this->assertDatabaseHas('databases', [
+            'name' => 'db_barbersip',
+        ]);
+        $this->assertDatabaseHas('database_users', [
+            'username' => 'u_barbersip',
         ]);
     }
 }
