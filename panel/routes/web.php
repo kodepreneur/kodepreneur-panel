@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
 
     // Websites
     Route::post('/websites/deploy-key/generate', [WebsiteController::class, 'generateDeployKey'])->name('websites.deploy-key.generate');
+    Route::post('/websites/git/test-connection', [WebsiteController::class, 'testGitConnection'])->name('websites.git.test-connection');
     Route::resource('websites', WebsiteController::class);
     Route::put('/websites/{website}/php', [WebsiteController::class, 'switchPhp'])->name('websites.php');
     Route::post('/websites/{website}/ssl', [WebsiteController::class, 'issueSsl'])->name('websites.ssl');

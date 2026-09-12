@@ -30,6 +30,8 @@ import {
     Unlock,
     ExternalLink,
     Code,
+    AlertCircle,
+    Radio,
 } from 'lucide-vue-next';
 
 function generateRandomPassword() {
@@ -51,6 +53,16 @@ const showCustomPrivateKey = ref(false);
 const showGitToken = ref(false);
 const copiedDeployKey = ref(false);
 const keyGenError = ref('');
+
+const isTestingGitConnection = ref(false);
+const gitConnectionResult = ref<{
+    success: boolean;
+    message: string;
+    hint?: string;
+    commit_hash?: string;
+    ref?: string;
+    branch?: string;
+} | null>(null);
 
 const form = useForm({
     domain: '',
@@ -131,6 +143,7 @@ function copyDeployKey() {
 
 function togglePrivateRepo(isPrivate: boolean) {
     isPrivateRepo.value = isPrivate;
+    gitConnectionResult.value = null;
     if (isPrivate) {
         form.git_auth_type = gitAuthType.value;
         if (form.git_auth_type === 'ssh_key') {
@@ -144,8 +157,61 @@ function togglePrivateRepo(isPrivate: boolean) {
 function setGitAuthType(type: 'ssh_key' | 'token') {
     gitAuthType.value = type;
     form.git_auth_type = type;
+    gitConnectionResult.value = null;
     if (type === 'ssh_key') {
         fetchDeployKey();
+    }
+}
+
+async function testGitConnection() {
+    if (!form.git_repository) {
+        gitConnectionResult.value = {
+            success: false,
+            message: 'Please enter the Git repository URL first.',
+        };
+        return;
+    }
+
+    if (isPrivateRepo.value) {
+        if (form.git_auth_type === 'ssh_key' && !form.git_ssh_private_key) {
+            gitConnectionResult.value = {
+                success: false,
+                message: 'No SSH private key found. Please wait for the deploy key to finish generating, or paste your private key.',
+            };
+            return;
+        }
+        if (form.git_auth_type === 'token' && !form.git_token) {
+            gitConnectionResult.value = {
+                success: false,
+                message: 'Please enter your Personal Access Token before testing.',
+            };
+            return;
+        }
+    }
+
+    isTestingGitConnection.value = true;
+    gitConnectionResult.value = null;
+
+    try {
+        const res = await axios.post('/websites/git/test-connection', {
+            git_repository: form.git_repository,
+            git_branch: form.git_branch || 'main',
+            git_auth_type: isPrivateRepo.value ? form.git_auth_type : 'none',
+            git_ssh_private_key: isPrivateRepo.value && form.git_auth_type === 'ssh_key' ? form.git_ssh_private_key : null,
+            git_token: isPrivateRepo.value && form.git_auth_type === 'token' ? form.git_token : null,
+            git_token_user: isPrivateRepo.value && form.git_auth_type === 'token' ? form.git_token_user : null,
+        });
+
+        gitConnectionResult.value = res.data;
+    } catch (err: any) {
+        const data = err.response?.data;
+        gitConnectionResult.value = {
+            success: false,
+            message: data?.message || err.message || 'Connection to remote Git repository failed.',
+            hint: data?.hint,
+        };
+    } finally {
+        isTestingGitConnection.value = false;
     }
 }
 
@@ -700,6 +766,85 @@ function submit() {
                             <div class="p-3 rounded-lg bg-slate-50 dark:bg-surface-950/60 border border-slate-200/80 dark:border-surface-800 text-[10.5px] text-slate-500 dark:text-surface-400 space-y-1">
                                 <p class="font-semibold text-slate-700 dark:text-surface-300">Required Token Scopes / Permissions:</p>
                                 <p>Ensure your token has <strong class="text-slate-800 dark:text-surface-200">repo</strong> (GitHub) or <strong class="text-slate-800 dark:text-surface-200">read_repository</strong> (GitLab) permission to clone private repositories.</p>
+                            </div>
+                        </div>
+
+                        <!-- Test Connection Panel for Private Repo -->
+                        <div v-if="isPrivateRepo" class="rounded-xl border border-slate-200/90 dark:border-surface-800 bg-slate-50/70 dark:bg-surface-950/40 p-4 space-y-3 transition">
+                            <div class="flex items-center justify-between flex-wrap gap-3">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="p-2 rounded-lg bg-white dark:bg-surface-900 border border-slate-200/80 dark:border-surface-800 text-slate-700 dark:text-surface-200 shadow-xs">
+                                        <Radio class="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                            <span>Test Git Connection</span>
+                                            <span class="text-[10px] font-medium px-2 py-0.5 text-slate-600 dark:text-surface-300 bg-white dark:bg-surface-900 border border-slate-200 dark:border-surface-800 rounded-md">
+                                                {{ form.git_auth_type === 'ssh_key' ? 'SSH Deploy Key' : 'Personal Access Token' }}
+                                            </span>
+                                        </p>
+                                        <p class="text-[11px] text-slate-500 dark:text-surface-400 mt-0.5">
+                                            Verify that the remote repository is reachable with the configured credentials before provisioning.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    @click="testGitConnection"
+                                    :disabled="isTestingGitConnection || !form.git_repository"
+                                    class="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-surface-100 dark:text-slate-900 dark:hover:bg-white transition flex items-center gap-2 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                >
+                                    <RefreshCw v-if="isTestingGitConnection" class="w-3.5 h-3.5 animate-spin" />
+                                    <Radio v-else class="w-3.5 h-3.5" />
+                                    <span>{{ isTestingGitConnection ? 'Testing Connection...' : 'Test Connection' }}</span>
+                                </button>
+                            </div>
+
+                            <!-- Success Result Banner -->
+                            <div
+                                v-if="gitConnectionResult && gitConnectionResult.success"
+                                class="p-3.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 flex items-start gap-3 animate-in fade-in duration-200"
+                            >
+                                <CheckCircle2 class="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                                <div class="space-y-1 flex-1 min-w-0">
+                                    <div class="flex items-center justify-between flex-wrap gap-2">
+                                        <p class="text-xs font-bold text-emerald-900 dark:text-emerald-200">
+                                            Connection Verified Successfully
+                                        </p>
+                                        <div class="flex items-center gap-1.5 text-[10px] font-mono">
+                                            <span v-if="gitConnectionResult.branch" class="px-2 py-0.5 rounded-md bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-semibold">
+                                                branch: {{ gitConnectionResult.branch }}
+                                            </span>
+                                            <span v-if="gitConnectionResult.commit_hash" class="px-2 py-0.5 rounded-md bg-emerald-100/80 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                                                commit: {{ gitConnectionResult.commit_hash }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p class="text-[11px] text-emerald-700 dark:text-emerald-300">
+                                        {{ gitConnectionResult.message }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Error Result Banner -->
+                            <div
+                                v-else-if="gitConnectionResult && !gitConnectionResult.success"
+                                class="p-3.5 rounded-xl bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 flex items-start gap-3 animate-in fade-in duration-200"
+                            >
+                                <AlertCircle class="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                                <div class="space-y-1.5 flex-1 min-w-0">
+                                    <p class="text-xs font-bold text-rose-900 dark:text-rose-200">
+                                        Connection Test Failed
+                                    </p>
+                                    <p class="text-[11px] text-rose-700 dark:text-rose-300 font-mono break-all leading-relaxed">
+                                        {{ gitConnectionResult.message }}
+                                    </p>
+                                    <div v-if="gitConnectionResult.hint" class="pt-1 text-[11px] text-rose-800 dark:text-rose-200/90 font-medium flex items-center gap-1.5">
+                                        <Info class="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                        <span>{{ gitConnectionResult.hint }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

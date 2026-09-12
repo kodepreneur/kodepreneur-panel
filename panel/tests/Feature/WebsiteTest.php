@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\Website;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Process;
 use Tests\TestCase;
 
 class WebsiteTest extends TestCase
@@ -448,6 +449,159 @@ class WebsiteTest extends TestCase
         ]);
         $this->assertDatabaseHas('database_users', [
             'username' => 'u_barbersip',
+        ]);
+    }
+
+    public function test_user_can_test_git_connection_with_ssh_key_success(): void
+    {
+        Process::fake([
+            'git ls-remote*' => Process::result(
+                output: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4\trefs/heads/main\n",
+                exitCode: 0,
+            ),
+        ]);
+
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'git_repository' => 'git@github.com:myorg/private-repo.git',
+            'git_branch' => 'main',
+            'git_auth_type' => 'ssh_key',
+            'git_ssh_private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'commit_hash' => 'e3b0c442',
+            'branch' => 'main',
+        ]);
+    }
+
+    public function test_user_can_test_git_connection_with_ssh_key_failure(): void
+    {
+        Process::fake([
+            'git ls-remote*' => Process::result(
+                output: '',
+                errorOutput: "Permission denied (publickey).\nfatal: Could not read from remote repository.",
+                exitCode: 128,
+            ),
+        ]);
+
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'git_repository' => 'git@github.com:myorg/private-repo.git',
+            'git_branch' => 'main',
+            'git_auth_type' => 'ssh_key',
+            'git_ssh_private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonStructure([
+            'success',
+            'message',
+            'hint',
+        ]);
+        $this->assertFalse($response->json('success'));
+        $this->assertStringContainsString('Permission denied', $response->json('message'));
+        $this->assertStringContainsString('Deploy Keys', $response->json('hint'));
+    }
+
+    public function test_user_can_test_git_connection_with_token_success(): void
+    {
+        Process::fake([
+            'git ls-remote*' => Process::result(
+                output: "fa45bc1189fc1c149afbf4c8996fb92427ae41e4\trefs/heads/production\n",
+                exitCode: 0,
+            ),
+        ]);
+
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'git_repository' => 'https://github.com/myorg/token-repo.git',
+            'git_branch' => 'production',
+            'git_auth_type' => 'token',
+            'git_token' => 'ghp_super_secret_token_123',
+            'git_token_user' => 'x-access-token',
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'commit_hash' => 'fa45bc11',
+            'branch' => 'production',
+        ]);
+    }
+
+    public function test_user_can_test_git_connection_with_token_failure(): void
+    {
+        Process::fake([
+            'git ls-remote*' => Process::result(
+                output: '',
+                errorOutput: "fatal: Authentication failed for 'https://github.com/myorg/token-repo.git/'",
+                exitCode: 128,
+            ),
+        ]);
+
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'git_repository' => 'https://github.com/myorg/token-repo.git',
+            'git_branch' => 'production',
+            'git_auth_type' => 'token',
+            'git_token' => 'ghp_invalid_token',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertFalse($response->json('success'));
+        $this->assertStringContainsString('Authentication failed', $response->json('message'));
+    }
+
+    public function test_user_cannot_test_git_connection_without_repository(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'git_repository' => '',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('git_repository');
+    }
+
+    public function test_user_can_test_git_connection_for_existing_website(): void
+    {
+        Process::fake([
+            'git ls-remote*' => Process::result(
+                output: "1234567890abcdef\tHEAD\n",
+                exitCode: 0,
+            ),
+        ]);
+
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $website = Website::create([
+            'domain' => 'existing-git.com',
+            'php_version' => '8.3',
+            'document_root' => '/var/www/existing-git.com/public',
+            'system_user' => 'kp_existinggit',
+            'git_repository' => 'git@github.com:myorg/existing-app.git',
+            'git_branch' => 'main',
+            'git_auth_type' => 'ssh_key',
+            'git_ssh_private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\ntest\n-----END OPENSSH PRIVATE KEY-----",
+        ]);
+
+        $response = $this->actingAs($user)->postJson('/websites/git/test-connection', [
+            'website_id' => $website->id,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+            'commit_hash' => '12345678',
+            'branch' => 'main',
         ]);
     }
 }

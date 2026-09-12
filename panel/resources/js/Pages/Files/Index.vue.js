@@ -3,9 +3,24 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Folder, FolderPlus, FilePlus, Upload, Download, Copy, Scissors, Trash2, Edit3, Save, X, Globe, HardDrive, Code, ArrowLeft, ArrowRight, CornerLeftUp, RefreshCw, Search, FileText, Image as ImageIcon, Archive, Shield, Info, Eye, Maximize2, Minimize2, AlertTriangle, FileCode, Terminal, Layers, FileSpreadsheet, FileArchive, } from 'lucide-vue-next';
 const props = defineProps();
+function getWebsiteBasePath(site) {
+    if (!site)
+        return '/var/www';
+    if (site.document_root) {
+        const cleaned = site.document_root.trim().replace(/\/+$/, '');
+        if (cleaned.endsWith('/public')) {
+            return cleaned.replace(/\/public$/, '') || '/var/www';
+        }
+        return cleaned || '/var/www';
+    }
+    if (site.domain) {
+        return `/var/www/${site.domain}`;
+    }
+    return '/var/www';
+}
 // Navigation & Location State
 const activeWebsite = ref(props.selectedWebsite || props.websites[0] || null);
-const currentBasePath = ref(props.basePath);
+const currentBasePath = ref(props.basePath || getWebsiteBasePath(activeWebsite.value));
 const currentRelPath = ref(props.currentPath || '');
 const fileList = ref(props.files || []);
 const diskInfo = ref(props.diskUsage || null);
@@ -38,8 +53,10 @@ watch(() => props.showHidden, (newHidden) => {
         isShowHidden.value = newHidden;
 });
 watch(() => props.selectedWebsite, (newSite) => {
-    if (newSite)
+    if (newSite) {
         activeWebsite.value = newSite;
+        currentBasePath.value = getWebsiteBasePath(newSite);
+    }
 });
 // Selection State
 const selectedPaths = ref(new Set());
@@ -144,6 +161,17 @@ async function fetchDirectory(relPath, addToHistory = true) {
                 historyStack.value.push(relPath);
                 historyIndex.value = historyStack.value.length - 1;
             }
+            try {
+                const url = new URL(window.location.href);
+                if (relPath) {
+                    url.searchParams.set('path', relPath);
+                }
+                else {
+                    url.searchParams.delete('path');
+                }
+                window.history.replaceState({}, '', url.toString());
+            }
+            catch (_) { }
         }
         else {
             showToast(data.error || 'Failed to load directory', 'error');
@@ -186,13 +214,23 @@ function toggleShowHidden() {
 }
 function onWebsiteChange(e) {
     const target = e.target;
-    const site = props.websites.find(w => w.id === target.value);
+    const selectedId = target.value;
+    const site = props.websites.find(w => String(w.id) === String(selectedId));
     if (site) {
         activeWebsite.value = site;
-        currentBasePath.value = site.document_root ? site.document_root.replace(/\/public\/?$/, '') : '/var/www';
+        currentBasePath.value = getWebsiteBasePath(site);
         currentRelPath.value = '';
         historyStack.value = [''];
         historyIndex.value = 0;
+        selectedPaths.value.clear();
+        searchQuery.value = '';
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.set('website_id', String(site.id));
+            url.searchParams.delete('path');
+            window.history.replaceState({}, '', url.toString());
+        }
+        catch (_) { }
         fetchDirectory('', false);
     }
 }
@@ -202,8 +240,8 @@ function onWebsiteChange(e) {
 const breadcrumbSegments = computed(() => {
     const segments = [];
     // Base root name
-    const domain = activeWebsite.value?.domain || 'www';
-    segments.push({ name: `/var/www/${domain}`, path: '' });
+    const rootName = currentBasePath.value || (activeWebsite.value?.domain ? `/var/www/${activeWebsite.value.domain}` : '/var/www');
+    segments.push({ name: rootName, path: '' });
     if (currentRelPath.value) {
         const parts = currentRelPath.value.split('/').filter(Boolean);
         let accumulated = '';

@@ -15,6 +15,7 @@ use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -103,6 +104,188 @@ class WebsiteController extends Controller
             $buffer = "\x00" . $buffer;
         }
         return pack('Na*', $len, $buffer);
+    }
+
+    public function testGitConnection(Request $request): JsonResponse
+    {
+        if ($request->filled('website_id')) {
+            $website = Website::findOrFail($request->input('website_id'));
+            $repoUrl = trim($request->input('git_repository', $website->git_repository ?? ''));
+            $branch = trim($request->input('git_branch', $website->git_branch ?? '') ?: '') ?: null;
+            $authType = $request->input('git_auth_type', $website->git_auth_type ?? 'none');
+            $privateKey = $request->filled('git_ssh_private_key') ? $request->input('git_ssh_private_key') : $website->git_ssh_private_key;
+            $token = $request->filled('git_token') ? $request->input('git_token') : $website->git_token;
+            $tokenUser = $request->filled('git_token_user') ? $request->input('git_token_user') : $website->git_token_user;
+        } else {
+            $validated = $request->validate([
+                'git_repository' => ['required', 'string', 'max:500'],
+                'git_branch' => ['nullable', 'string', 'max:100'],
+                'git_auth_type' => ['nullable', 'string', 'in:none,ssh_key,token'],
+                'git_ssh_private_key' => ['nullable', 'string'],
+                'git_token' => ['nullable', 'string', 'max:500'],
+                'git_token_user' => ['nullable', 'string', 'max:100'],
+            ]);
+
+            $repoUrl = trim($validated['git_repository']);
+            $branch = trim($validated['git_branch'] ?? '') ?: null;
+            $authType = $validated['git_auth_type'] ?? 'none';
+            $privateKey = $validated['git_ssh_private_key'] ?? null;
+            $token = $validated['git_token'] ?? null;
+            $tokenUser = $validated['git_token_user'] ?? null;
+        }
+
+        if (empty($repoUrl)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Repository URL is required.',
+            ], 422);
+        }
+
+        $tempKeyFile = null;
+
+        try {
+            $env = [
+                'GIT_TERMINAL_PROMPT' => '0',
+            ];
+
+            $effectiveRepoUrl = $repoUrl;
+
+            if ($authType === 'ssh_key') {
+                if (empty($privateKey)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'SSH private key is missing. Please generate or paste a valid deploy key.',
+                    ], 422);
+                }
+
+                $tempKeyFile = tempnam(sys_get_temp_dir(), 'kp_git_test_');
+                file_put_contents($tempKeyFile, trim($privateKey) . "\n");
+                chmod($tempKeyFile, 0600);
+
+                $env['GIT_SSH_COMMAND'] = 'ssh -i ' . escapeshellarg($tempKeyFile) . ' -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=10';
+            } elseif ($authType === 'token') {
+                if (empty($token)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Personal access token is required for token authentication.',
+                    ], 422);
+                }
+
+                $effectiveRepoUrl = $this->buildAuthenticatedGitUrl($repoUrl, $token, $tokenUser);
+            }
+
+            $refTarget = $branch ?: 'HEAD';
+            $cmd = 'git ls-remote ' . escapeshellarg($effectiveRepoUrl) . ' ' . escapeshellarg($refTarget);
+
+            $result = Process::timeout(15)
+                ->env($env)
+                ->run($cmd);
+
+            $rawOutput = $result->output();
+            $errorOutput = $result->errorOutput();
+
+            // Mask token in outputs if present
+            if ($token) {
+                $rawOutput = str_replace($token, '******', $rawOutput);
+                $errorOutput = str_replace($token, '******', $errorOutput);
+            }
+
+            if (! $result->successful()) {
+                $err = trim($errorOutput ?: $rawOutput);
+                if (empty($err)) {
+                    $err = 'Failed to connect to the remote repository. Please verify the URL and access credentials.';
+                }
+
+                $hint = null;
+                if ($authType === 'ssh_key') {
+                    if (str_contains($err, 'Permission denied') || str_contains($err, 'publickey')) {
+                        $hint = 'Authentication failed. Please verify that the generated public deploy key has been added to your repository settings (Settings > Deploy Keys) with read access.';
+                    } elseif (str_contains($err, 'Could not resolve host')) {
+                        $hint = 'Unable to resolve the host domain. Please verify that the repository URL is correct and reachable.';
+                    }
+                } elseif ($authType === 'token') {
+                    if (str_contains($err, 'Authentication failed') || str_contains($err, '403') || str_contains($err, '401')) {
+                        $hint = 'Token authentication failed. Please ensure the token is valid, unexpired, and has "repo" (GitHub) or "read_repository" (GitLab) permissions.';
+                    }
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $err,
+                    'hint' => $hint,
+                ], 422);
+            }
+
+            $commitHash = null;
+            $matchedRef = null;
+            $lines = array_filter(explode("\n", trim($rawOutput)));
+            if (! empty($lines)) {
+                $parts = preg_split('/\s+/', trim($lines[0]));
+                if (! empty($parts[0])) {
+                    $commitHash = substr($parts[0], 0, 8);
+                }
+                if (! empty($parts[1])) {
+                    $matchedRef = $parts[1];
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Connection verified successfully! Remote repository is reachable and authenticated.',
+                'commit_hash' => $commitHash,
+                'ref' => $matchedRef,
+                'branch' => $branch ?: 'HEAD',
+            ]);
+        } catch (Exception $e) {
+            $msg = $e->getMessage();
+            if ($token) {
+                $msg = str_replace($token, '******', $msg);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Connection test error: ' . $msg,
+            ], 500);
+        } finally {
+            if ($tempKeyFile && file_exists($tempKeyFile)) {
+                @unlink($tempKeyFile);
+            }
+        }
+    }
+
+    private function buildAuthenticatedGitUrl(string $repoUrl, string $token, ?string $user = null): string
+    {
+        $repoUrl = trim($repoUrl);
+        if (! str_starts_with($repoUrl, 'http://') && ! str_starts_with($repoUrl, 'https://')) {
+            return $repoUrl;
+        }
+
+        $parsed = parse_url($repoUrl);
+        if (! $parsed || ! isset($parsed['scheme'], $parsed['host'])) {
+            return $repoUrl;
+        }
+
+        $tokenUser = trim($user ?? '');
+        if ($tokenUser === '') {
+            $hostLower = strtolower($parsed['host']);
+            if (str_contains($hostLower, 'gitlab')) {
+                $tokenUser = 'oauth2';
+            } elseif (str_contains($hostLower, 'github')) {
+                $tokenUser = 'x-access-token';
+            } else {
+                $tokenUser = '';
+            }
+        }
+
+        $userPass = $tokenUser !== ''
+            ? rawurlencode($tokenUser) . ':' . rawurlencode($token)
+            : rawurlencode($token);
+
+        $port = isset($parsed['port']) ? ':' . $parsed['port'] : '';
+        $path = $parsed['path'] ?? '';
+        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+
+        return "{$parsed['scheme']}://{$userPass}@{$parsed['host']}{$port}{$path}{$query}";
     }
 
     public function store(Request $request): RedirectResponse

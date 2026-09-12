@@ -37,6 +37,7 @@ import {
     AlertTriangle,
     CheckCircle2,
     ArrowUpRight,
+    AlertCircle,
 } from 'lucide-vue-next';
 import type { Website, Deployment, SslCertificate, Domain, WebsiteTrafficSummary, TimeSeriesDataPoint, RequestLogEntry } from '@/types';
 
@@ -58,6 +59,44 @@ function copyShowDeployKey() {
     setTimeout(() => {
         copiedShowDeployKey.value = false;
     }, 2000);
+}
+
+const isTestingGit = ref(false);
+const gitTestResult = ref<{
+    success: boolean;
+    message: string;
+    hint?: string;
+    commit_hash?: string;
+    branch?: string;
+} | null>(null);
+
+async function testWebsiteGitConnection() {
+    isTestingGit.value = true;
+    gitTestResult.value = null;
+
+    try {
+        const res = await fetch('/websites/git/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            },
+            body: JSON.stringify({
+                website_id: props.website.id,
+            }),
+        });
+
+        const data = await res.json();
+        gitTestResult.value = data;
+    } catch (err: any) {
+        gitTestResult.value = {
+            success: false,
+            message: err.message || 'Connection test failed.',
+        };
+    } finally {
+        isTestingGit.value = false;
+    }
 }
 
 // PHP Switch Form
@@ -479,6 +518,31 @@ function triggerDeploy() {
                                 <Unlock class="w-3 h-3" />
                                 Public Repository
                             </span>
+                            <button
+                                type="button"
+                                @click="testWebsiteGitConnection"
+                                :disabled="isTestingGit"
+                                class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-surface-800 text-slate-700 dark:text-surface-200 hover:bg-slate-200 dark:hover:bg-surface-700 transition flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                <RefreshCw class="w-3 h-3" :class="{ 'animate-spin': isTestingGit }" />
+                                <span>{{ isTestingGit ? 'Testing...' : 'Test Connection' }}</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Git Connection Test Result -->
+                    <div v-if="gitTestResult" class="p-3.5 rounded-xl text-xs flex items-start gap-3 border transition-all"
+                        :class="gitTestResult.success ? 'bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300' : 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/40 text-rose-800 dark:text-rose-300'">
+                        <CheckCircle2 v-if="gitTestResult.success" class="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                        <AlertCircle v-else class="w-4 h-4 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" />
+                        <div class="space-y-1">
+                            <p class="font-semibold">{{ gitTestResult.message }}</p>
+                            <p v-if="gitTestResult.commit_hash" class="text-[11px] font-mono opacity-80">
+                                Latest commit: {{ gitTestResult.commit_hash }} ({{ gitTestResult.branch }})
+                            </p>
+                            <p v-if="gitTestResult.hint" class="text-[11px] opacity-90 mt-0.5">
+                                {{ gitTestResult.hint }}
+                            </p>
                         </div>
                     </div>
 

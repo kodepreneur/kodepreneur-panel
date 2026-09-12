@@ -2,7 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Globe, ArrowLeft, ShieldCheck, ShieldAlert, Cpu, Folder, GitBranch, Play, RefreshCw, ExternalLink, Lock, Unlock, Settings, Check, FileText, Key, Copy, Activity, BarChart3, TrendingUp, Users, HardDrive, Search, Laptop, Radio, Clock, CheckCircle2, ArrowUpRight, } from 'lucide-vue-next';
+import { Globe, ArrowLeft, ShieldCheck, ShieldAlert, Cpu, Folder, GitBranch, Play, RefreshCw, ExternalLink, Lock, Unlock, Settings, Check, FileText, Key, Copy, Activity, BarChart3, TrendingUp, Users, HardDrive, Search, Laptop, Radio, Clock, CheckCircle2, ArrowUpRight, AlertCircle, } from 'lucide-vue-next';
 const props = defineProps();
 const activeTab = ref('overview');
 const copiedShowDeployKey = ref(false);
@@ -14,6 +14,36 @@ function copyShowDeployKey() {
     setTimeout(() => {
         copiedShowDeployKey.value = false;
     }, 2000);
+}
+const isTestingGit = ref(false);
+const gitTestResult = ref(null);
+async function testWebsiteGitConnection() {
+    isTestingGit.value = true;
+    gitTestResult.value = null;
+    try {
+        const res = await fetch('/websites/git/test-connection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify({
+                website_id: props.website.id,
+            }),
+        });
+        const data = await res.json();
+        gitTestResult.value = data;
+    }
+    catch (err) {
+        gitTestResult.value = {
+            success: false,
+            message: err.message || 'Connection test failed.',
+        };
+    }
+    finally {
+        isTestingGit.value = false;
+    }
 }
 // PHP Switch Form
 const phpForm = useForm({
@@ -660,6 +690,73 @@ if (__VLS_ctx.activeTab === 'overview') {
                 ...{ class: "w-3 h-3" },
             }, ...__VLS_functionalComponentArgsRest(__VLS_81));
         }
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
+            ...{ onClick: (__VLS_ctx.testWebsiteGitConnection) },
+            type: "button",
+            disabled: (__VLS_ctx.isTestingGit),
+            ...{ class: "px-2.5 py-1 text-[11px] font-medium rounded-lg bg-slate-100 dark:bg-surface-800 text-slate-700 dark:text-surface-200 hover:bg-slate-200 dark:hover:bg-surface-700 transition flex items-center gap-1.5 disabled:opacity-50" },
+        });
+        const __VLS_84 = {}.RefreshCw;
+        /** @type {[typeof __VLS_components.RefreshCw, ]} */ ;
+        // @ts-ignore
+        const __VLS_85 = __VLS_asFunctionalComponent(__VLS_84, new __VLS_84({
+            ...{ class: "w-3 h-3" },
+            ...{ class: ({ 'animate-spin': __VLS_ctx.isTestingGit }) },
+        }));
+        const __VLS_86 = __VLS_85({
+            ...{ class: "w-3 h-3" },
+            ...{ class: ({ 'animate-spin': __VLS_ctx.isTestingGit }) },
+        }, ...__VLS_functionalComponentArgsRest(__VLS_85));
+        __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
+        (__VLS_ctx.isTestingGit ? 'Testing...' : 'Test Connection');
+        if (__VLS_ctx.gitTestResult) {
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+                ...{ class: "p-3.5 rounded-xl text-xs flex items-start gap-3 border transition-all" },
+                ...{ class: (__VLS_ctx.gitTestResult.success ? 'bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/40 text-emerald-800 dark:text-emerald-300' : 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/40 text-rose-800 dark:text-rose-300') },
+            });
+            if (__VLS_ctx.gitTestResult.success) {
+                const __VLS_88 = {}.CheckCircle2;
+                /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
+                // @ts-ignore
+                const __VLS_89 = __VLS_asFunctionalComponent(__VLS_88, new __VLS_88({
+                    ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" },
+                }));
+                const __VLS_90 = __VLS_89({
+                    ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" },
+                }, ...__VLS_functionalComponentArgsRest(__VLS_89));
+            }
+            else {
+                const __VLS_92 = {}.AlertCircle;
+                /** @type {[typeof __VLS_components.AlertCircle, ]} */ ;
+                // @ts-ignore
+                const __VLS_93 = __VLS_asFunctionalComponent(__VLS_92, new __VLS_92({
+                    ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" },
+                }));
+                const __VLS_94 = __VLS_93({
+                    ...{ class: "w-4 h-4 text-rose-600 dark:text-rose-400 mt-0.5 shrink-0" },
+                }, ...__VLS_functionalComponentArgsRest(__VLS_93));
+            }
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
+                ...{ class: "space-y-1" },
+            });
+            __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+                ...{ class: "font-semibold" },
+            });
+            (__VLS_ctx.gitTestResult.message);
+            if (__VLS_ctx.gitTestResult.commit_hash) {
+                __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+                    ...{ class: "text-[11px] font-mono opacity-80" },
+                });
+                (__VLS_ctx.gitTestResult.commit_hash);
+                (__VLS_ctx.gitTestResult.branch);
+            }
+            if (__VLS_ctx.gitTestResult.hint) {
+                __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
+                    ...{ class: "text-[11px] opacity-90 mt-0.5" },
+                });
+                (__VLS_ctx.gitTestResult.hint);
+            }
+        }
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
             ...{ class: "grid grid-cols-1 sm:grid-cols-2 gap-4" },
         });
@@ -693,15 +790,15 @@ if (__VLS_ctx.activeTab === 'overview') {
             __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
                 ...{ class: "flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-surface-300" },
             });
-            const __VLS_84 = {}.Key;
+            const __VLS_96 = {}.Key;
             /** @type {[typeof __VLS_components.Key, ]} */ ;
             // @ts-ignore
-            const __VLS_85 = __VLS_asFunctionalComponent(__VLS_84, new __VLS_84({
+            const __VLS_97 = __VLS_asFunctionalComponent(__VLS_96, new __VLS_96({
                 ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
             }));
-            const __VLS_86 = __VLS_85({
+            const __VLS_98 = __VLS_97({
                 ...{ class: "w-3.5 h-3.5 text-brand-600 dark:text-brand-400" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_85));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_97));
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
             __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
                 ...{ onClick: (__VLS_ctx.copyShowDeployKey) },
@@ -709,26 +806,26 @@ if (__VLS_ctx.activeTab === 'overview') {
                 ...{ class: "px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white dark:bg-surface-800 border border-slate-200 dark:border-surface-700 text-slate-700 dark:text-surface-200 hover:text-brand-600 dark:hover:text-brand-400 transition flex items-center gap-1 shadow-sm" },
             });
             if (__VLS_ctx.copiedShowDeployKey) {
-                const __VLS_88 = {}.Check;
+                const __VLS_100 = {}.Check;
                 /** @type {[typeof __VLS_components.Check, ]} */ ;
                 // @ts-ignore
-                const __VLS_89 = __VLS_asFunctionalComponent(__VLS_88, new __VLS_88({
+                const __VLS_101 = __VLS_asFunctionalComponent(__VLS_100, new __VLS_100({
                     ...{ class: "w-3 h-3 text-emerald-500" },
                 }));
-                const __VLS_90 = __VLS_89({
+                const __VLS_102 = __VLS_101({
                     ...{ class: "w-3 h-3 text-emerald-500" },
-                }, ...__VLS_functionalComponentArgsRest(__VLS_89));
+                }, ...__VLS_functionalComponentArgsRest(__VLS_101));
             }
             else {
-                const __VLS_92 = {}.Copy;
+                const __VLS_104 = {}.Copy;
                 /** @type {[typeof __VLS_components.Copy, ]} */ ;
                 // @ts-ignore
-                const __VLS_93 = __VLS_asFunctionalComponent(__VLS_92, new __VLS_92({
+                const __VLS_105 = __VLS_asFunctionalComponent(__VLS_104, new __VLS_104({
                     ...{ class: "w-3 h-3" },
                 }));
-                const __VLS_94 = __VLS_93({
+                const __VLS_106 = __VLS_105({
                     ...{ class: "w-3 h-3" },
-                }, ...__VLS_functionalComponentArgsRest(__VLS_93));
+                }, ...__VLS_functionalComponentArgsRest(__VLS_105));
             }
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
             (__VLS_ctx.copiedShowDeployKey ? 'Copied' : 'Copy Key');
@@ -755,15 +852,15 @@ if (__VLS_ctx.activeTab === 'overview') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_96 = {}.Settings;
+    const __VLS_108 = {}.Settings;
     /** @type {[typeof __VLS_components.Settings, ]} */ ;
     // @ts-ignore
-    const __VLS_97 = __VLS_asFunctionalComponent(__VLS_96, new __VLS_96({
+    const __VLS_109 = __VLS_asFunctionalComponent(__VLS_108, new __VLS_108({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_98 = __VLS_97({
+    const __VLS_110 = __VLS_109({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_97));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_109));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.form, __VLS_intrinsicElements.form)({
         ...{ onSubmit: (__VLS_ctx.updateSettings) },
@@ -809,15 +906,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center shadow-sm" },
     });
-    const __VLS_100 = {}.Activity;
+    const __VLS_112 = {}.Activity;
     /** @type {[typeof __VLS_components.Activity, ]} */ ;
     // @ts-ignore
-    const __VLS_101 = __VLS_asFunctionalComponent(__VLS_100, new __VLS_100({
+    const __VLS_113 = __VLS_asFunctionalComponent(__VLS_112, new __VLS_112({
         ...{ class: "w-4 h-4" },
     }));
-    const __VLS_102 = __VLS_101({
+    const __VLS_114 = __VLS_113({
         ...{ class: "w-4 h-4" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_101));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_113));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "flex items-center gap-2" },
@@ -903,15 +1000,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
             ]) },
         title: "Toggle live telemetry auto-polling (every 10s)",
     });
-    const __VLS_104 = {}.Radio;
+    const __VLS_116 = {}.Radio;
     /** @type {[typeof __VLS_components.Radio, ]} */ ;
     // @ts-ignore
-    const __VLS_105 = __VLS_asFunctionalComponent(__VLS_104, new __VLS_104({
+    const __VLS_117 = __VLS_asFunctionalComponent(__VLS_116, new __VLS_116({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.autoPollTraffic ? 'animate-pulse text-emerald-500' : '']) },
     }));
-    const __VLS_106 = __VLS_105({
+    const __VLS_118 = __VLS_117({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.autoPollTraffic ? 'animate-pulse text-emerald-500' : '']) },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_105));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_117));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     (__VLS_ctx.autoPollTraffic ? 'Live: On' : 'Live: Off');
     __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
@@ -924,15 +1021,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
         ...{ class: "p-2 rounded-xl bg-white dark:bg-surface-800 hover:bg-slate-50 dark:hover:bg-surface-700 text-slate-600 dark:text-surface-300 border border-slate-200 dark:border-surface-700 transition shadow-sm" },
         title: "Refresh Traffic Data",
     });
-    const __VLS_108 = {}.RefreshCw;
+    const __VLS_120 = {}.RefreshCw;
     /** @type {[typeof __VLS_components.RefreshCw, ]} */ ;
     // @ts-ignore
-    const __VLS_109 = __VLS_asFunctionalComponent(__VLS_108, new __VLS_108({
+    const __VLS_121 = __VLS_asFunctionalComponent(__VLS_120, new __VLS_120({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.isFetchingTraffic ? 'animate-spin text-brand-500' : '']) },
     }));
-    const __VLS_110 = __VLS_109({
+    const __VLS_122 = __VLS_121({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.isFetchingTraffic ? 'animate-spin text-brand-500' : '']) },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_109));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_121));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" },
     });
@@ -945,15 +1042,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-500/20 flex items-center justify-center shadow-sm" },
     });
-    const __VLS_112 = {}.TrendingUp;
+    const __VLS_124 = {}.TrendingUp;
     /** @type {[typeof __VLS_components.TrendingUp, ]} */ ;
     // @ts-ignore
-    const __VLS_113 = __VLS_asFunctionalComponent(__VLS_112, new __VLS_112({
+    const __VLS_125 = __VLS_asFunctionalComponent(__VLS_124, new __VLS_124({
         ...{ class: "w-5 h-5" },
     }));
-    const __VLS_114 = __VLS_113({
+    const __VLS_126 = __VLS_125({
         ...{ class: "w-5 h-5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_113));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_125));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-xs font-semibold text-slate-500 dark:text-surface-400" },
     });
@@ -984,15 +1081,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "w-10 h-10 rounded-xl bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400 border border-sky-100 dark:border-sky-500/20 flex items-center justify-center shadow-sm" },
     });
-    const __VLS_116 = {}.HardDrive;
+    const __VLS_128 = {}.HardDrive;
     /** @type {[typeof __VLS_components.HardDrive, ]} */ ;
     // @ts-ignore
-    const __VLS_117 = __VLS_asFunctionalComponent(__VLS_116, new __VLS_116({
+    const __VLS_129 = __VLS_asFunctionalComponent(__VLS_128, new __VLS_128({
         ...{ class: "w-5 h-5" },
     }));
-    const __VLS_118 = __VLS_117({
+    const __VLS_130 = __VLS_129({
         ...{ class: "w-5 h-5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_117));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_129));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-xs font-semibold text-slate-500 dark:text-surface-400" },
     });
@@ -1022,15 +1119,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20 flex items-center justify-center shadow-sm" },
     });
-    const __VLS_120 = {}.Users;
+    const __VLS_132 = {}.Users;
     /** @type {[typeof __VLS_components.Users, ]} */ ;
     // @ts-ignore
-    const __VLS_121 = __VLS_asFunctionalComponent(__VLS_120, new __VLS_120({
+    const __VLS_133 = __VLS_asFunctionalComponent(__VLS_132, new __VLS_132({
         ...{ class: "w-5 h-5" },
     }));
-    const __VLS_122 = __VLS_121({
+    const __VLS_134 = __VLS_133({
         ...{ class: "w-5 h-5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_121));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_133));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-xs font-semibold text-slate-500 dark:text-surface-400" },
     });
@@ -1060,15 +1157,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "w-10 h-10 rounded-xl bg-purple-50 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-100 dark:border-purple-500/20 flex items-center justify-center shadow-sm" },
     });
-    const __VLS_124 = {}.CheckCircle2;
+    const __VLS_136 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_125 = __VLS_asFunctionalComponent(__VLS_124, new __VLS_124({
+    const __VLS_137 = __VLS_asFunctionalComponent(__VLS_136, new __VLS_136({
         ...{ class: "w-5 h-5" },
     }));
-    const __VLS_126 = __VLS_125({
+    const __VLS_138 = __VLS_137({
         ...{ class: "w-5 h-5" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_125));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_137));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
         ...{ class: "text-xs font-semibold text-slate-500 dark:text-surface-400" },
     });
@@ -1100,15 +1197,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_128 = {}.BarChart3;
+    const __VLS_140 = {}.BarChart3;
     /** @type {[typeof __VLS_components.BarChart3, ]} */ ;
     // @ts-ignore
-    const __VLS_129 = __VLS_asFunctionalComponent(__VLS_128, new __VLS_128({
+    const __VLS_141 = __VLS_asFunctionalComponent(__VLS_140, new __VLS_140({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_130 = __VLS_129({
+    const __VLS_142 = __VLS_141({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_129));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_141));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     (__VLS_ctx.trafficPeriod);
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
@@ -1255,15 +1352,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
             ...{ class: "flex items-center gap-2 font-bold text-indigo-300" },
         });
-        const __VLS_132 = {}.Clock;
+        const __VLS_144 = {}.Clock;
         /** @type {[typeof __VLS_components.Clock, ]} */ ;
         // @ts-ignore
-        const __VLS_133 = __VLS_asFunctionalComponent(__VLS_132, new __VLS_132({
+        const __VLS_145 = __VLS_asFunctionalComponent(__VLS_144, new __VLS_144({
             ...{ class: "w-3 h-3" },
         }));
-        const __VLS_134 = __VLS_133({
+        const __VLS_146 = __VLS_145({
             ...{ class: "w-3 h-3" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_133));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_145));
         __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
         (__VLS_ctx.svgCoordinates[__VLS_ctx.hoveredPointIndex].point.label);
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({});
@@ -1304,15 +1401,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_136 = {}.CheckCircle2;
+    const __VLS_148 = {}.CheckCircle2;
     /** @type {[typeof __VLS_components.CheckCircle2, ]} */ ;
     // @ts-ignore
-    const __VLS_137 = __VLS_asFunctionalComponent(__VLS_136, new __VLS_136({
+    const __VLS_149 = __VLS_asFunctionalComponent(__VLS_148, new __VLS_148({
         ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400" },
     }));
-    const __VLS_138 = __VLS_137({
+    const __VLS_150 = __VLS_149({
         ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_137));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_149));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "h-3 w-full bg-slate-100 dark:bg-surface-800 rounded-full overflow-hidden flex shadow-inner" },
@@ -1620,15 +1717,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
                 ...{ class: "font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2" },
             });
-            const __VLS_140 = {}.Laptop;
+            const __VLS_152 = {}.Laptop;
             /** @type {[typeof __VLS_components.Laptop, ]} */ ;
             // @ts-ignore
-            const __VLS_141 = __VLS_asFunctionalComponent(__VLS_140, new __VLS_140({
+            const __VLS_153 = __VLS_asFunctionalComponent(__VLS_152, new __VLS_152({
                 ...{ class: "w-3.5 h-3.5 text-slate-400" },
             }));
-            const __VLS_142 = __VLS_141({
+            const __VLS_154 = __VLS_153({
                 ...{ class: "w-3.5 h-3.5 text-slate-400" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_141));
+            }, ...__VLS_functionalComponentArgsRest(__VLS_153));
             __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
             (uaItem.key);
             __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
@@ -1661,15 +1758,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_144 = {}.Radio;
+    const __VLS_156 = {}.Radio;
     /** @type {[typeof __VLS_components.Radio, ]} */ ;
     // @ts-ignore
-    const __VLS_145 = __VLS_asFunctionalComponent(__VLS_144, new __VLS_144({
+    const __VLS_157 = __VLS_asFunctionalComponent(__VLS_156, new __VLS_156({
         ...{ class: "w-4 h-4 text-emerald-500 animate-pulse" },
     }));
-    const __VLS_146 = __VLS_145({
+    const __VLS_158 = __VLS_157({
         ...{ class: "w-4 h-4 text-emerald-500 animate-pulse" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_145));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_157));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
         ...{ class: "text-[11px] text-slate-500 dark:text-surface-400 mt-0.5" },
@@ -1677,15 +1774,15 @@ if (__VLS_ctx.activeTab === 'traffic') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "relative w-full sm:w-64" },
     });
-    const __VLS_148 = {}.Search;
+    const __VLS_160 = {}.Search;
     /** @type {[typeof __VLS_components.Search, ]} */ ;
     // @ts-ignore
-    const __VLS_149 = __VLS_asFunctionalComponent(__VLS_148, new __VLS_148({
+    const __VLS_161 = __VLS_asFunctionalComponent(__VLS_160, new __VLS_160({
         ...{ class: "w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" },
     }));
-    const __VLS_150 = __VLS_149({
+    const __VLS_162 = __VLS_161({
         ...{ class: "w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_149));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_161));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.input)({
         value: (__VLS_ctx.trafficSearchQuery),
         type: "text",
@@ -1795,15 +1892,15 @@ if (__VLS_ctx.activeTab === 'php') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_152 = {}.Cpu;
+    const __VLS_164 = {}.Cpu;
     /** @type {[typeof __VLS_components.Cpu, ]} */ ;
     // @ts-ignore
-    const __VLS_153 = __VLS_asFunctionalComponent(__VLS_152, new __VLS_152({
+    const __VLS_165 = __VLS_asFunctionalComponent(__VLS_164, new __VLS_164({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
     }));
-    const __VLS_154 = __VLS_153({
+    const __VLS_166 = __VLS_165({
         ...{ class: "w-4 h-4 text-brand-600 dark:text-brand-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_153));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_165));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
         ...{ class: "text-xs text-slate-500 dark:text-surface-400" },
@@ -1878,15 +1975,15 @@ if (__VLS_ctx.activeTab === 'ssl') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_156 = {}.ShieldCheck;
+    const __VLS_168 = {}.ShieldCheck;
     /** @type {[typeof __VLS_components.ShieldCheck, ]} */ ;
     // @ts-ignore
-    const __VLS_157 = __VLS_asFunctionalComponent(__VLS_156, new __VLS_156({
+    const __VLS_169 = __VLS_asFunctionalComponent(__VLS_168, new __VLS_168({
         ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400" },
     }));
-    const __VLS_158 = __VLS_157({
+    const __VLS_170 = __VLS_169({
         ...{ class: "w-4 h-4 text-emerald-600 dark:text-emerald-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_157));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_169));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.p, __VLS_intrinsicElements.p)({
         ...{ class: "text-xs text-slate-500 dark:text-surface-400 mt-1" },
@@ -1901,15 +1998,15 @@ if (__VLS_ctx.activeTab === 'ssl') {
         __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
             ...{ class: "flex items-center gap-2" },
         });
-        const __VLS_160 = {}.ShieldCheck;
+        const __VLS_172 = {}.ShieldCheck;
         /** @type {[typeof __VLS_components.ShieldCheck, ]} */ ;
         // @ts-ignore
-        const __VLS_161 = __VLS_asFunctionalComponent(__VLS_160, new __VLS_160({
+        const __VLS_173 = __VLS_asFunctionalComponent(__VLS_172, new __VLS_172({
             ...{ class: "w-5 h-5 text-emerald-600 dark:text-emerald-400" },
         }));
-        const __VLS_162 = __VLS_161({
+        const __VLS_174 = __VLS_173({
             ...{ class: "w-5 h-5 text-emerald-600 dark:text-emerald-400" },
-        }, ...__VLS_functionalComponentArgsRest(__VLS_161));
+        }, ...__VLS_functionalComponentArgsRest(__VLS_173));
         __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({
             ...{ class: "text-xs font-bold text-emerald-900 dark:text-emerald-200" },
         });
@@ -1981,15 +2078,15 @@ if (__VLS_ctx.activeTab === 'ssl') {
         disabled: (__VLS_ctx.sslForm.processing),
         ...{ class: "px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold shadow-md shadow-brand-600/20 flex items-center gap-2 transition disabled:opacity-50" },
     });
-    const __VLS_164 = {}.ShieldCheck;
+    const __VLS_176 = {}.ShieldCheck;
     /** @type {[typeof __VLS_components.ShieldCheck, ]} */ ;
     // @ts-ignore
-    const __VLS_165 = __VLS_asFunctionalComponent(__VLS_164, new __VLS_164({
+    const __VLS_177 = __VLS_asFunctionalComponent(__VLS_176, new __VLS_176({
         ...{ class: "w-4 h-4" },
     }));
-    const __VLS_166 = __VLS_165({
+    const __VLS_178 = __VLS_177({
         ...{ class: "w-4 h-4" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_165));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_177));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     (__VLS_ctx.sslForm.processing ? 'Requesting Let\'s Encrypt...' : 'Issue SSL Certificate');
 }
@@ -2056,15 +2153,15 @@ if (__VLS_ctx.activeTab === 'logs') {
         ...{ class: "p-2 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-600 dark:text-surface-300 transition" },
         title: "Refresh Logs",
     });
-    const __VLS_168 = {}.RefreshCw;
+    const __VLS_180 = {}.RefreshCw;
     /** @type {[typeof __VLS_components.RefreshCw, ]} */ ;
     // @ts-ignore
-    const __VLS_169 = __VLS_asFunctionalComponent(__VLS_168, new __VLS_168({
+    const __VLS_181 = __VLS_asFunctionalComponent(__VLS_180, new __VLS_180({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.isFetchingLogs ? 'animate-spin' : '']) },
     }));
-    const __VLS_170 = __VLS_169({
+    const __VLS_182 = __VLS_181({
         ...{ class: (['w-3.5 h-3.5', __VLS_ctx.isFetchingLogs ? 'animate-spin' : '']) },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_169));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_181));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.div, __VLS_intrinsicElements.div)({
         ...{ class: "p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-300 h-96 overflow-y-auto space-y-1 select-text" },
     });
@@ -2091,15 +2188,15 @@ if (__VLS_ctx.activeTab === 'deployments') {
     __VLS_asFunctionalElement(__VLS_intrinsicElements.h3, __VLS_intrinsicElements.h3)({
         ...{ class: "text-xs font-semibold text-slate-700 dark:text-surface-300 uppercase tracking-wider flex items-center gap-2" },
     });
-    const __VLS_172 = {}.GitBranch;
+    const __VLS_184 = {}.GitBranch;
     /** @type {[typeof __VLS_components.GitBranch, ]} */ ;
     // @ts-ignore
-    const __VLS_173 = __VLS_asFunctionalComponent(__VLS_172, new __VLS_172({
+    const __VLS_185 = __VLS_asFunctionalComponent(__VLS_184, new __VLS_184({
         ...{ class: "w-4 h-4 text-purple-500 dark:text-purple-400" },
     }));
-    const __VLS_174 = __VLS_173({
+    const __VLS_186 = __VLS_185({
         ...{ class: "w-4 h-4 text-purple-500 dark:text-purple-400" },
-    }, ...__VLS_functionalComponentArgsRest(__VLS_173));
+    }, ...__VLS_functionalComponentArgsRest(__VLS_185));
     __VLS_asFunctionalElement(__VLS_intrinsicElements.span, __VLS_intrinsicElements.span)({});
     __VLS_asFunctionalElement(__VLS_intrinsicElements.button, __VLS_intrinsicElements.button)({
         ...{ onClick: (__VLS_ctx.triggerDeploy) },
@@ -2139,19 +2236,19 @@ if (__VLS_ctx.activeTab === 'deployments') {
             });
             (deploy.trigger_source);
             (deploy.duration_seconds ?? 0);
-            const __VLS_176 = {}.Link;
+            const __VLS_188 = {}.Link;
             /** @type {[typeof __VLS_components.Link, typeof __VLS_components.Link, ]} */ ;
             // @ts-ignore
-            const __VLS_177 = __VLS_asFunctionalComponent(__VLS_176, new __VLS_176({
+            const __VLS_189 = __VLS_asFunctionalComponent(__VLS_188, new __VLS_188({
                 href: (`/deployments/${deploy.id}`),
                 ...{ class: "px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-200 text-xs font-mono transition" },
             }));
-            const __VLS_178 = __VLS_177({
+            const __VLS_190 = __VLS_189({
                 href: (`/deployments/${deploy.id}`),
                 ...{ class: "px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-surface-800 dark:hover:bg-surface-700 text-slate-700 dark:text-surface-200 text-xs font-mono transition" },
-            }, ...__VLS_functionalComponentArgsRest(__VLS_177));
-            __VLS_179.slots.default;
-            var __VLS_179;
+            }, ...__VLS_functionalComponentArgsRest(__VLS_189));
+            __VLS_191.slots.default;
+            var __VLS_191;
         }
     }
 }
@@ -2502,6 +2599,52 @@ var __VLS_2;
 /** @type {__VLS_StyleScopedClasses['gap-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['w-3']} */ ;
 /** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['px-2.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['py-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-medium']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-lg']} */ ;
+/** @type {__VLS_StyleScopedClasses['bg-slate-100']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:bg-surface-800']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-slate-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-surface-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['hover:bg-slate-200']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:hover:bg-surface-700']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-center']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-1.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['disabled:opacity-50']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['p-3.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['rounded-xl']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-xs']} */ ;
+/** @type {__VLS_StyleScopedClasses['flex']} */ ;
+/** @type {__VLS_StyleScopedClasses['items-start']} */ ;
+/** @type {__VLS_StyleScopedClasses['gap-3']} */ ;
+/** @type {__VLS_StyleScopedClasses['border']} */ ;
+/** @type {__VLS_StyleScopedClasses['transition-all']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-emerald-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-emerald-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-0.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['shrink-0']} */ ;
+/** @type {__VLS_StyleScopedClasses['w-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['h-4']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-rose-600']} */ ;
+/** @type {__VLS_StyleScopedClasses['dark:text-rose-400']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-0.5']} */ ;
+/** @type {__VLS_StyleScopedClasses['shrink-0']} */ ;
+/** @type {__VLS_StyleScopedClasses['space-y-1']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-semibold']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['font-mono']} */ ;
+/** @type {__VLS_StyleScopedClasses['opacity-80']} */ ;
+/** @type {__VLS_StyleScopedClasses['text-[11px]']} */ ;
+/** @type {__VLS_StyleScopedClasses['opacity-90']} */ ;
+/** @type {__VLS_StyleScopedClasses['mt-0.5']} */ ;
 /** @type {__VLS_StyleScopedClasses['grid']} */ ;
 /** @type {__VLS_StyleScopedClasses['grid-cols-1']} */ ;
 /** @type {__VLS_StyleScopedClasses['sm:grid-cols-2']} */ ;
@@ -4011,9 +4154,13 @@ const __VLS_self = (await import('vue')).defineComponent({
             Clock: Clock,
             CheckCircle2: CheckCircle2,
             ArrowUpRight: ArrowUpRight,
+            AlertCircle: AlertCircle,
             activeTab: activeTab,
             copiedShowDeployKey: copiedShowDeployKey,
             copyShowDeployKey: copyShowDeployKey,
+            isTestingGit: isTestingGit,
+            gitTestResult: gitTestResult,
+            testWebsiteGitConnection: testWebsiteGitConnection,
             phpForm: phpForm,
             switchPhp: switchPhp,
             sslForm: sslForm,
