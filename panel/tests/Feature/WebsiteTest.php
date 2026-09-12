@@ -604,4 +604,29 @@ class WebsiteTest extends TestCase
             'branch' => 'main',
         ]);
     }
+
+    public function test_user_can_create_website_with_crlf_ssh_private_key(): void
+    {
+        $user = User::where('email', 'admin@kodepreneur.com')->first();
+
+        $crlfKey = "-----BEGIN OPENSSH PRIVATE KEY-----\r\ntest\r\n-----END OPENSSH PRIVATE KEY-----\r\n";
+
+        $response = $this->actingAs($user)->post('/websites', [
+            'domain' => 'crlf-ssh.com',
+            'php_version' => '8.4',
+            'deployment_source' => 'git',
+            'project_type' => 'laravel',
+            'git_repository' => 'git@github.com:myorg/crlf-repo.git',
+            'git_branch' => 'main',
+            'git_auth_type' => 'ssh_key',
+            'git_ssh_public_key' => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG... kodepreneur-deploy-key',
+            'git_ssh_private_key' => $crlfKey,
+        ]);
+
+        $website = Website::where('domain', 'crlf-ssh.com')->firstOrFail();
+        $response->assertRedirect("/websites/{$website->id}");
+
+        $this->assertFalse(str_contains($website->git_ssh_private_key, "\r"));
+        $this->assertTrue(str_ends_with($website->git_ssh_private_key, "\n"));
+    }
 }

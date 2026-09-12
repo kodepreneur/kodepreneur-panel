@@ -46,7 +46,22 @@ class WebsiteController extends Controller
 
     public function generateDeployKey(): JsonResponse
     {
-        // 1. Try ssh-keygen for modern ed25519 key
+        // 1. Try agent-assisted key generation (runs on the server host with native elevated privileges)
+        try {
+            $agentKey = $this->agentClient->generateDeployKey('ed25519');
+            if (!empty($agentKey['public_key']) && !empty($agentKey['private_key'])) {
+                return response()->json([
+                    'success' => true,
+                    'public_key' => trim($agentKey['public_key']),
+                    'private_key' => str_replace(["\r\n", "\r"], "\n", trim($agentKey['private_key'])) . "\n",
+                    'type' => $agentKey['type'] ?? 'ed25519',
+                ]);
+            }
+        } catch (Exception $e) {
+            // Fall through to local fallback
+        }
+
+        // 2. Try local ssh-keygen for modern ed25519 key
         $tempFile = tempnam(sys_get_temp_dir(), 'kp_key_');
         @unlink($tempFile);
         $cmd = "ssh-keygen -t ed25519 -N '' -C 'kodepreneur-deploy-key' -f " . escapeshellarg($tempFile) . " 2>&1";
@@ -60,12 +75,12 @@ class WebsiteController extends Controller
             return response()->json([
                 'success' => true,
                 'public_key' => $publicKey,
-                'private_key' => $privateKey,
+                'private_key' => str_replace(["\r\n", "\r"], "\n", trim($privateKey)) . "\n",
                 'type' => 'ed25519',
             ]);
         }
 
-        // 2. Fallback to OpenSSL RSA-4096 if ssh-keygen is unavailable
+        // 3. Fallback to OpenSSL RSA-4096 if ssh-keygen is unavailable
         $config = [
             "digest_alg" => "sha512",
             "private_key_bits" => 4096,
@@ -84,7 +99,7 @@ class WebsiteController extends Controller
                 return response()->json([
                     'success' => true,
                     'public_key' => $publicKey,
-                    'private_key' => $privateKey,
+                    'private_key' => str_replace(["\r\n", "\r"], "\n", trim($privateKey)) . "\n",
                     'type' => 'rsa',
                 ]);
             }
@@ -132,6 +147,10 @@ class WebsiteController extends Controller
             $privateKey = $validated['git_ssh_private_key'] ?? null;
             $token = $validated['git_token'] ?? null;
             $tokenUser = $validated['git_token_user'] ?? null;
+        }
+
+        if (!empty($privateKey)) {
+            $privateKey = str_replace(["\r\n", "\r"], "\n", trim($privateKey)) . "\n";
         }
 
         if (empty($repoUrl)) {
@@ -340,7 +359,13 @@ class WebsiteController extends Controller
         $gitToken = $validated['git_token'] ?? null;
         $gitTokenUser = $validated['git_token_user'] ?? null;
         $gitSshPrivateKey = $validated['git_ssh_private_key'] ?? null;
+        if (!empty($gitSshPrivateKey)) {
+            $gitSshPrivateKey = str_replace(["\r\n", "\r"], "\n", trim($gitSshPrivateKey)) . "\n";
+        }
         $gitSshPublicKey = $validated['git_ssh_public_key'] ?? null;
+        if (!empty($gitSshPublicKey)) {
+            $gitSshPublicKey = trim($gitSshPublicKey);
+        }
         $domainSlug = Str::slug(explode('.', $domain)[0], '_');
         $systemUser = 'kp_' . $domainSlug;
 

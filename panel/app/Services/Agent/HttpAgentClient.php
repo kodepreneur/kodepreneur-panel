@@ -140,6 +140,12 @@ class HttpAgentClient implements AgentClientInterface
         return $res['data'] ?? [];
     }
 
+    public function generateDeployKey(string $type = 'ed25519'): array
+    {
+        $res = $this->request('POST', '/api/v1/git/deploy-key/generate', ['type' => $type]);
+        return $res['data'] ?? [];
+    }
+
     public function syncCronJobs(string $systemUser, array $jobs): array
     {
         $res = $this->request('POST', '/api/v1/cron/sync', [

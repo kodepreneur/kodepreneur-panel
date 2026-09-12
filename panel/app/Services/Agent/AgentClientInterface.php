@@ -110,6 +110,11 @@ interface AgentClientInterface
     public function executeDeployment(array $payload): array;
 
     /**
+     * Generate an SSH deploy key pair.
+     */
+    public function generateDeployKey(string $type = 'ed25519'): array;
+
+    /**
      * Sync user crontab jobs.
      */
     public function syncCronJobs(string $systemUser, array $jobs): array;

@@ -524,6 +524,15 @@ class MockAgentClient implements AgentClientInterface
         ];
     }
 
+    public function generateDeployKey(string $type = 'ed25519'): array
+    {
+        return [
+            'public_key' => 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyDeployPanelDevMode kodepreneur-deploy-key',
+            'private_key' => "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAmockDevKey=======================\n-----END OPENSSH PRIVATE KEY-----\n",
+            'type' => $type,
+        ];
+    }
+
     public function syncCronJobs(string $systemUser, array $jobs): array
     {
         return [

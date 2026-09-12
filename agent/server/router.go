@@ -123,6 +123,7 @@ func (r *Router) registerRoutes() {
 
 	// Git Deployments (Phase 5)
 	r.mux.Handle("/api/v1/deployments/execute", http.HandlerFunc(r.handleDeploymentExecute))
+	r.mux.Handle("/api/v1/git/deploy-key/generate", http.HandlerFunc(r.handleGitDeployKeyGenerate))
 
 	// Cron Jobs (Phase 6)
 	r.mux.Handle("/api/v1/cron/sync", http.HandlerFunc(r.handleCronSync))
@@ -1015,6 +1016,39 @@ func (r *Router) handleDeploymentExecute(w http.ResponseWriter, req *http.Reques
 	respondJSON(w, http.StatusOK, map[string]any{
 		"success": true,
 		"data":    res,
+	})
+}
+
+// handleGitDeployKeyGenerate handles POST /api/v1/git/deploy-key/generate
+func (r *Router) handleGitDeployKeyGenerate(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		respondError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	var payload struct {
+		Type string `json:"type"`
+	}
+	if req.Body != nil {
+		_ = json.NewDecoder(req.Body).Decode(&payload)
+	}
+	if payload.Type == "" {
+		payload.Type = "ed25519"
+	}
+
+	pub, priv, err := r.gitRunner.GenerateDeployKey(payload.Type)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "KEYGEN_FAILED", err.Error())
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]any{
+		"success": true,
+		"data": map[string]any{
+			"public_key":  pub,
+			"private_key": priv,
+			"type":        payload.Type,
+		},
 	})
 }
 

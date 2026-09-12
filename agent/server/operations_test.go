@@ -105,4 +105,15 @@ func TestOperationsEndpoints(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("Expected 200 OK for file read, got %d: %s", rec.Code, rec.Body.String())
 	}
+
+	// 7. POST /api/v1/git/deploy-key/generate
+	keygenPayload := []byte(`{"type": "ed25519"}`)
+	req = httptest.NewRequest("POST", "/api/v1/git/deploy-key/generate", bytes.NewReader(keygenPayload))
+	signRequest(req, keygenPayload, cfg.Security.SecretKey)
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for deploy-key generate, got %d: %s", rec.Code, rec.Body.String())
+	}
 }

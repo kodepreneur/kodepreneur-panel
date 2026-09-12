@@ -106,6 +106,10 @@ func (r *Runner) Execute(req DeploymentRequest) (*DeploymentResult, error) {
 		}, nil
 	}
 
+	if req.AuthType == "ssh_key" && strings.TrimSpace(req.SshPrivateKey) != "" {
+		_ = setupUserSshKey(req.SystemUser, req.WorkingDir, req.SshPrivateKey)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(req.TimeoutSec)*time.Second)
 	defer cancel()
 
@@ -117,7 +121,14 @@ func (r *Runner) Execute(req DeploymentRequest) (*DeploymentResult, error) {
 	scriptBuilder.WriteString("set -e\n")
 	scriptBuilder.WriteString("export PATH=\"/usr/local/bin:/usr/bin:/bin:$PATH\"\n")
 	scriptBuilder.WriteString("export GIT_TERMINAL_PROMPT=0\n")
-	scriptBuilder.WriteString("export GIT_SSH_COMMAND=\"ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes\"\n")
+	scriptBuilder.WriteString(fmt.Sprintf(`if [ -f "%s/.ssh/id_rsa" ]; then
+    export GIT_SSH_COMMAND="ssh -i %s/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+elif [ -f "%s/.ssh/id_ed25519" ]; then
+    export GIT_SSH_COMMAND="ssh -i %s/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+else
+    export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+fi
+`, req.WorkingDir, req.WorkingDir, req.WorkingDir, req.WorkingDir))
 	scriptBuilder.WriteString(fmt.Sprintf("cd %s\n", req.WorkingDir))
 
 	for _, cmdStr := range req.Commands {
@@ -218,7 +229,13 @@ func (r *Runner) Clone(opts CloneOptions) error {
 	// 3. Clone or initialize git repository in place as the system user
 	cloneScript := fmt.Sprintf(`set -e
 export GIT_TERMINAL_PROMPT=0
-export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+if [ -f "%s/.ssh/id_rsa" ]; then
+    export GIT_SSH_COMMAND="ssh -i %s/.ssh/id_rsa -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+elif [ -f "%s/.ssh/id_ed25519" ]; then
+    export GIT_SSH_COMMAND="ssh -i %s/.ssh/id_ed25519 -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+else
+    export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new -o BatchMode=yes"
+fi
 git config --global --add safe.directory "%s" 2>/dev/null || true
 cd "%s"
 if [ ! -d ".git" ]; then
@@ -231,7 +248,7 @@ else
     git fetch --depth 1 origin "%s"
     git reset --hard "origin/%s"
 fi
-`, opts.TargetDir, opts.TargetDir, opts.Branch, opts.Branch, effectiveUrl, effectiveUrl, opts.Branch, opts.Branch, opts.Branch, opts.Branch, effectiveUrl, opts.Branch, opts.Branch)
+`, opts.TargetDir, opts.TargetDir, opts.TargetDir, opts.TargetDir, opts.TargetDir, opts.TargetDir, opts.Branch, opts.Branch, effectiveUrl, effectiveUrl, opts.Branch, opts.Branch, opts.Branch, opts.Branch, effectiveUrl, opts.Branch, opts.Branch)
 
 	cmd := exec.Command("su", "-", opts.SystemUser, "-s", "/bin/bash", "-c", cloneScript)
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -268,28 +285,90 @@ func setupUserSshKey(systemUser, userHome, privateKeyContent string) error {
 	}
 
 	keyFile := filepath.Join(sshDir, "id_rsa")
-	cleanKey := strings.TrimSpace(privateKeyContent) + "\n"
+	ed25519File := filepath.Join(sshDir, "id_ed25519")
+
+	// 1. Sanitize key: normalize Windows CRLF and standalone CR to standard Unix LF
+	cleanKey := strings.ReplaceAll(privateKeyContent, "\r\n", "\n")
+	cleanKey = strings.ReplaceAll(cleanKey, "\r", "\n")
+	cleanKey = strings.TrimSpace(cleanKey) + "\n"
+
 	if err := os.WriteFile(keyFile, []byte(cleanKey), 0600); err != nil {
 		return err
 	}
 
-	// Setup known hosts for common git hosts
+	// 2. Normalize key into native OpenSSH format if possible using ssh-keygen.
+	// This ensures PEM/PKCS#8 keys (e.g. from OpenSSL or PHP export) are converted
+	// to OpenSSH format, completely eliminating OpenSSL libcrypto parsing errors.
+	_ = exec.Command("ssh-keygen", "-p", "-N", "", "-P", "", "-f", keyFile).Run()
+
+	// Also sync to id_ed25519 so both identity names are available
+	_ = os.WriteFile(ed25519File, []byte(cleanKey), 0600)
+	_ = exec.Command("ssh-keygen", "-p", "-N", "", "-P", "", "-f", ed25519File).Run()
+
+	// 3. Setup known hosts for common git hosts
 	knownHostsFile := filepath.Join(sshDir, "known_hosts")
 	if _, err := os.Stat(knownHostsFile); os.IsNotExist(err) {
 		_ = os.WriteFile(knownHostsFile, []byte(""), 0644)
 	}
 
-	// Setup SSH config
+	// 4. Setup SSH config
 	configFile := filepath.Join(sshDir, "config")
-	configContent := "Host github.com gitlab.com bitbucket.org *\n    StrictHostKeyChecking accept-new\n    IdentityFile ~/.ssh/id_rsa\n    BatchMode yes\n"
+	configContent := "Host github.com gitlab.com bitbucket.org *\n    StrictHostKeyChecking accept-new\n    IdentityFile ~/.ssh/id_rsa\n    IdentityFile ~/.ssh/id_ed25519\n    IdentitiesOnly yes\n    BatchMode yes\n"
 	_ = os.WriteFile(configFile, []byte(configContent), 0644)
 
-	// Ensure ownership is systemUser:www-data
+	// 5. Ensure ownership is systemUser:www-data
 	_ = exec.Command("chown", "-R", fmt.Sprintf("%s:www-data", systemUser), sshDir).Run()
 	_ = exec.Command("chmod", "700", sshDir).Run()
 	_ = exec.Command("chmod", "600", keyFile).Run()
+	_ = exec.Command("chmod", "600", ed25519File).Run()
 
 	return nil
+}
+
+// GenerateDeployKey generates a new SSH key pair (defaults to ed25519).
+func (r *Runner) GenerateDeployKey(keyType string) (publicKey, privateKey string, err error) {
+	if keyType == "" {
+		keyType = "ed25519"
+	}
+
+	if r.isDev {
+		mockPub := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockKeyDeployAgentDevMode kodepreneur-deploy-key"
+		mockPriv := "-----BEGIN OPENSSH PRIVATE KEY-----\nb3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW\nQyNTUxOQAAACAmockDevKey=======================\n-----END OPENSSH PRIVATE KEY-----\n"
+		return mockPub, mockPriv, nil
+	}
+
+	tempFile, err := os.CreateTemp("", "kp_agent_key_*")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create temp key file: %w", err)
+	}
+	tempPath := tempFile.Name()
+	_ = tempFile.Close()
+	_ = os.Remove(tempPath)
+
+	defer func() {
+		_ = os.Remove(tempPath)
+		_ = os.Remove(tempPath + ".pub")
+	}()
+
+	cmd := exec.Command("ssh-keygen", "-t", keyType, "-N", "", "-C", "kodepreneur-deploy-key", "-f", tempPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", "", fmt.Errorf("ssh-keygen failed: %s: %s", err.Error(), strings.TrimSpace(string(out)))
+	}
+
+	privBytes, err := os.ReadFile(tempPath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read private key: %w", err)
+	}
+	pubBytes, err := os.ReadFile(tempPath + ".pub")
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read public key: %w", err)
+	}
+
+	cleanPriv := strings.ReplaceAll(string(privBytes), "\r\n", "\n")
+	cleanPriv = strings.ReplaceAll(cleanPriv, "\r", "\n")
+	cleanPriv = strings.TrimSpace(cleanPriv) + "\n"
+
+	return strings.TrimSpace(string(pubBytes)), cleanPriv, nil
 }
 
 // buildAuthenticatedUrl embeds authentication tokens into HTTPS git URLs.

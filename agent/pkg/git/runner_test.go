@@ -96,3 +96,51 @@ func TestBuildAuthenticatedUrlAndMasking(t *testing.T) {
 		t.Errorf("Expected token to be masked, got %s", masked)
 	}
 }
+
+func TestSetupUserSshKey_CrlfNormalization(t *testing.T) {
+	tmpHome := filepath.Join(os.TempDir(), "kp_test_ssh_user_home")
+	defer os.RemoveAll(tmpHome)
+
+	crlfKey := "-----BEGIN OPENSSH PRIVATE KEY-----\r\nb3BlbnNzaC1rZXktdjEAAAAA\r\n-----END OPENSSH PRIVATE KEY-----\r\n"
+	err := setupUserSshKey("kp_user", tmpHome, crlfKey)
+	if err != nil {
+		t.Fatalf("setupUserSshKey failed: %v", err)
+	}
+
+	keyPath := filepath.Join(tmpHome, ".ssh", "id_rsa")
+	content, err := os.ReadFile(keyPath)
+	if err != nil {
+		t.Fatalf("Failed to read id_rsa: %v", err)
+	}
+
+	if strings.Contains(string(content), "\r") {
+		t.Errorf("Found carriage return in written key file: %q", string(content))
+	}
+
+	if !strings.HasSuffix(string(content), "\n") {
+		t.Errorf("Key file should end with a newline")
+	}
+
+	// Verify id_ed25519 was also created
+	edPath := filepath.Join(tmpHome, ".ssh", "id_ed25519")
+	if _, err := os.Stat(edPath); os.IsNotExist(err) {
+		t.Errorf("id_ed25519 was not created")
+	}
+}
+
+func TestGenerateDeployKey(t *testing.T) {
+	runner := NewRunner(true)
+	pub, priv, err := runner.GenerateDeployKey("ed25519")
+	if err != nil {
+		t.Fatalf("GenerateDeployKey failed: %v", err)
+	}
+
+	if !strings.HasPrefix(pub, "ssh-ed25519 ") {
+		t.Errorf("Expected ssh-ed25519 prefix in public key, got %s", pub)
+	}
+
+	if !strings.Contains(priv, "PRIVATE KEY") {
+		t.Errorf("Expected PRIVATE KEY in private key, got %s", priv)
+	}
+}
+
